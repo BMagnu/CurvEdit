@@ -1,0 +1,7 @@
+[package]
+name = "curvedit"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+fso_curves = { path = "fso_curves" }
