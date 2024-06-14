@@ -7,15 +7,33 @@ name = "curvedit"
 version = "0.1.0"
 dependencies = [
  "fso_curves",
+ "fso_tables",
 ]
 
 [[package]]
 name = "fso_curves"
 version = "0.1.0"
 dependencies = [
+ "fso_tables",
  "once_cell",
  "strum",
  "strum_macros",
+]
+
+[[package]]
+name = "fso_tables"
+version = "0.1.0"
+dependencies = [
+ "fso_tables_macro",
+]
+
+[[package]]
+name = "fso_tables_macro"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]

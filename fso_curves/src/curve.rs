@@ -2,14 +2,21 @@ use std::string::ToString;
 use once_cell::sync::Lazy;
 use strum::IntoEnumIterator;
 use strum_macros::{Display, EnumIter};
+use fso_tables::{fso_table, FSOParser, FSOParsingError, FSOTable};
 
-pub struct Curve<'a> {
-	pub name: String,
-	pub keyframes: Vec<CurveKeyframe<'a>>
+#[fso_table]
+pub struct CurveTable {
+	pub curves: Vec<Curve>
 }
 
-impl Curve<'_> {
-	pub fn calculate(&self, x: f32) -> f32 {
+#[fso_table]
+pub struct Curve {
+	pub name: String,
+	pub keyframes: Vec<CurveKeyframe>
+}
+
+impl Curve {
+	pub fn calculate(&self, x: f32, curves: &Vec<&Curve>) -> f32 {
 		assert!(self.keyframes.len() >= 2);
 
 		if self.keyframes[0].x > x {
@@ -21,7 +28,7 @@ impl Curve<'_> {
 
 		let result = self.keyframes[1..].iter().enumerate().find(|(_, kf)| x < kf.x).map(|(prev_index, kf)| {
 			let prev_kf = &self.keyframes[prev_index];
-			prev_kf.segment.calculate(x, prev_kf, kf)
+			prev_kf.segment.calculate(x, prev_kf, kf, curves)
 		});
 
 		if let Some(result) = result {
@@ -34,7 +41,7 @@ impl Curve<'_> {
 	}
 }
 
-impl Default for Curve<'_> {
+impl Default for Curve {
 	fn default() -> Self { 
 		Curve { name: "".to_string(), keyframes: vec![
 			CurveKeyframe { x: 0f32, y: 0f32, segment: CurveSegment::Linear },
@@ -43,29 +50,36 @@ impl Default for Curve<'_> {
 	}
 }
 
-pub struct CurveKeyframe<'a> {
+pub struct CurveKeyframe {
 	pub x: f32,
 	pub y: f32,
-	pub segment: CurveSegment<'a>
+	pub segment: CurveSegment
+}
+impl<'parser, Parser: FSOParser<'parser>> FSOTable<'parser, Parser> for CurveKeyframe {
+	fn parse(_state: &Parser) -> Result<Self, FSOParsingError> {
+		Err(FSOParsingError{})
+	}
+
+	fn dump(&self) { }
 }
 
-pub enum CurveSegment<'a>{
+pub enum CurveSegment{
 	Constant,
 	Linear,
 	Polynomial { ease_in: bool, degree: f32 },
 	Circular { ease_in: bool },
-	Subcurve { curve: &'a Curve<'a> }
+	Subcurve { curve: String }
 }
-impl CurveSegment<'_> {
-	pub fn calculate(&self, x: f32, current: &CurveKeyframe, next: &CurveKeyframe) -> f32 {
-		self.calculate_from_delta((x - current.x) / (next.x - current.x)) * (next.y - current.y) + current.y
+impl CurveSegment {
+	pub fn calculate(&self, x: f32, current: &CurveKeyframe, next: &CurveKeyframe, curves: &Vec<&Curve>) -> f32 {
+		self.calculate_from_delta((x - current.x) / (next.x - current.x), curves) * (next.y - current.y) + current.y
 	}
 	
-	fn calculate_from_delta(&self, t: f32) -> f32 {
-		match *self{
+	fn calculate_from_delta(&self, t: f32, curves: &Vec<&Curve>) -> f32 {
+		match self{
 			CurveSegment::Constant => { 0f32 }
 			CurveSegment::Linear => { t }
-			CurveSegment::Polynomial { ease_in, degree } => {
+			&CurveSegment::Polynomial { ease_in, degree } => {
 				if ease_in {
 					t.powf(degree)
 				}
@@ -73,7 +87,7 @@ impl CurveSegment<'_> {
 					1f32 - (1f32 - t).powf(degree)
 				}
 			}
-			CurveSegment::Circular { ease_in } => {
+			&CurveSegment::Circular { ease_in } => {
 				if ease_in {
 					1f32 - (1f32 - t.powi(2)).sqrt()
 				}
@@ -81,7 +95,9 @@ impl CurveSegment<'_> {
 					(1f32 - (1f32 - t).powi(2)).sqrt()
 				}
 			}
-			CurveSegment::Subcurve { curve } => { curve.calculate(t) }
+			CurveSegment::Subcurve { curve } => { 
+				curves.iter().find(|c| c.name.eq_ignore_ascii_case(curve)).map_or(0f32, |c| c.calculate(t, curves))
+			}
 		}
 	}
 }

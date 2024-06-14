@@ -1,3 +1,4 @@
+workspace = { members = ["fso_tables"] }
 [package]
 name = "curvedit"
 version = "0.1.0"
@@ -5,3 +6,4 @@ edition = "2021"
 
 [dependencies]
 fso_curves = { path = "fso_curves" }
+fso_tables = { path = "fso_tables" }
