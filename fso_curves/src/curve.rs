@@ -34,6 +34,15 @@ impl Curve<'_> {
 	}
 }
 
+impl Default for Curve<'_> {
+	fn default() -> Self { 
+		Curve { name: "".to_string(), keyframes: vec![
+			CurveKeyframe { x: 0f32, y: 0f32, segment: CurveSegment::Linear },
+			CurveKeyframe { x: 1f32, y: 1f32, segment: CurveSegment::Constant }
+		]} 
+	}
+}
+
 pub struct CurveKeyframe<'a> {
 	pub x: f32,
 	pub y: f32,
