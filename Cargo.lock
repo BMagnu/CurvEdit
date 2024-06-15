@@ -22,6 +22,7 @@ dependencies = [
 [[package]]
 name = "fso_curves"
 version = "0.1.0"
+source = "git+https://github.com/BMagnu/fso-tables-rust.git#4b7f3b3d0fa6edca101877b6001e6c6aa9655d70"
 dependencies = [
  "fso_tables",
  "once_cell",
@@ -32,6 +33,7 @@ dependencies = [
 [[package]]
 name = "fso_tables"
 version = "0.1.0"
+source = "git+https://github.com/BMagnu/fso-tables-rust.git#4b7f3b3d0fa6edca101877b6001e6c6aa9655d70"
 dependencies = [
  "fso_tables_macro",
  "regex",
@@ -40,6 +42,7 @@ dependencies = [
 [[package]]
 name = "fso_tables_macro"
 version = "0.1.0"
+source = "git+https://github.com/BMagnu/fso-tables-rust.git#4b7f3b3d0fa6edca101877b6001e6c6aa9655d70"
 dependencies = [
  "proc-macro2",
  "quote",
