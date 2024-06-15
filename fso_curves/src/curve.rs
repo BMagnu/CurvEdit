@@ -15,6 +15,19 @@ pub struct Curve {
 	pub keyframes: Vec<CurveKeyframe>
 }
 
+pub struct CurveKeyframe {
+	pub x: f32,
+	pub y: f32,
+	pub segment: CurveSegment
+}
+impl<'parser, Parser: FSOParser<'parser>> FSOTable<'parser, Parser> for CurveKeyframe {
+	fn parse(_state: &Parser) -> Result<Self, FSOParsingError> {
+		Err(FSOParsingError{})
+	}
+
+	fn dump(&self) { }
+}
+
 impl Curve {
 	pub fn calculate(&self, x: f32, curves: &Vec<&Curve>) -> f32 {
 		assert!(self.keyframes.len() >= 2);
@@ -48,19 +61,6 @@ impl Default for Curve {
 			CurveKeyframe { x: 1f32, y: 1f32, segment: CurveSegment::Constant }
 		]} 
 	}
-}
-
-pub struct CurveKeyframe {
-	pub x: f32,
-	pub y: f32,
-	pub segment: CurveSegment
-}
-impl<'parser, Parser: FSOParser<'parser>> FSOTable<'parser, Parser> for CurveKeyframe {
-	fn parse(_state: &Parser) -> Result<Self, FSOParsingError> {
-		Err(FSOParsingError{})
-	}
-
-	fn dump(&self) { }
 }
 
 pub enum CurveSegment{
