@@ -1,7 +1,7 @@
 use std::cell::{RefCell};
 use std::cmp::min;
 use std::error::Error;
-use std::fmt::{Debug, Display, Formatter};
+use std::fmt::{Debug, Display, format, Formatter};
 use std::fs::File;
 use std::io::Read;
 use std::iter::Peekable;
@@ -96,6 +96,13 @@ pub trait FSOParser<'a> {
 		let current = self.get();
 		let whitespaces = current.chars().take_while(|c| (*c != '\n' && c.is_whitespace()) || *c == ',' || also_consume.contains(c)).fold(0, |sum, c| sum + c.len_utf8());
 		self.consume(whitespaces);
+	}
+	
+	fn read_until_whitespace(&self) -> String {
+		let current = self.get();
+		let cropped = current.chars().take_while(|c| !c.is_whitespace() && *c != ',').collect::<String>();
+		self.consume(cropped.len());
+		cropped
 	}
 	
 	fn read_until_target(&self, target: &str, consume_target: bool) -> &str {
@@ -211,6 +218,26 @@ impl<'a, Parser: FSOParser<'a>> FSOTable<'a, Parser> for String {
 		state.consume_whitespace_inline(&['"']);
 		let result = state.read_until_last_whitespace_of_line_or_stop(&['"']);
 		Ok(result.to_string())
+	}
+
+	fn dump(&self) { }
+}
+
+impl<'a, Parser: FSOParser<'a>> FSOTable<'a, Parser> for bool {
+	fn parse(state: &Parser) -> Result<Self, FSOParsingError> {
+		state.consume_whitespace_inline(&[]);
+		let result = state.read_until_whitespace();
+		match result.clone().to_lowercase().as_str() {
+			"yes" | "true" | "on" => {
+				Ok(true)
+			}
+			"no" | "false" | "off" => {
+				Ok(false)
+			}
+			_ => {
+				Err(FSOParsingError { reason: format!("Expected boolean value, got {}.", result), line: state.line() })
+			}
+		}
 	}
 
 	fn dump(&self) { }

@@ -70,6 +70,7 @@ impl Default for Curve {
 	}
 }
 
+#[fso_table]
 pub enum CurveSegment{
 	Constant,
 	Linear,
