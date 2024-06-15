@@ -1,7 +1,7 @@
 use std::cell::{RefCell};
 use std::cmp::min;
 use std::error::Error;
-use std::fmt::{Debug, Display, format, Formatter};
+use std::fmt::{Debug, Display, Formatter};
 use std::fs::File;
 use std::io::Read;
 use std::iter::Peekable;

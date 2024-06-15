@@ -4,8 +4,9 @@ use strum::IntoEnumIterator;
 use strum_macros::{Display, EnumIter};
 use fso_tables::{fso_table, FSOParser, FSOParsingError, FSOTable};
 
-#[fso_table]
+#[fso_table(table_start="#Curves", table_end="#End")]
 pub struct CurveTable {
+	#[unnamed]
 	pub curves: Vec<Curve>
 }
 
@@ -28,8 +29,8 @@ impl<'parser, Parser: FSOParser<'parser>> FSOTable<'parser, Parser> for CurveKey
 		let y = <f32 as FSOTable<Parser>>::parse(state)?;
 		state.consume_whitespace_inline(&[]);
 		state.consume_string("):")?;
-		
-		Err(FSOParsingError{reason: "".to_string(), line: 0 })
+		let segment = <CurveSegment as FSOTable<Parser>>::parse(state)?;
+		Ok(CurveKeyframe { x, y, segment })
 	}
 
 	fn dump(&self) { }

@@ -7,26 +7,29 @@ use syn::PathArguments::AngleBracketed;
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 use syn::token::{PathSep};
+use crate::FSONaming::{ExistenceIsBool, Named, Unnamed};
+
+enum FSONaming {
+	Named { fso_name: String },
+	Unnamed,
+	ExistenceIsBool { fso_name: String }
+}
 
 struct TableField {
-	fso_name: String,
+	fso_name: FSONaming,
 	rust_token: Ident,
 	rust_type: Type,
 	rust_span: Span
 }
 
-struct EnumField {
-	fso_name: String,
-	rust_token: Ident,
-	rust_contents: Vec<(Ident, Type)>,
-	rust_span: Span
-}
-
 fn fso_table_build_parse(fields: &Vec<TableField>) -> (proc_macro2::TokenStream, proc_macro2::TokenStream) {
-	let mut parse = proc_macro2::TokenStream::new();
+	let mut parse = quote! {
+		let mut __already_parsed_comments = false;
+		let (mut __comments, mut __version_string) = (None, None);
+	};
 	let mut fill = proc_macro2::TokenStream::new();
 	
-	for field in fields.iter() {
+	for (field_num, field) in fields.iter().enumerate() {
 		let name = &field.rust_token;
 		
 		let new_parse = match &field.rust_type {
@@ -39,8 +42,30 @@ fn fso_table_build_parse(fields: &Vec<TableField>) -> (proc_macro2::TokenStream,
 					panic!("Unparametrized Option found!");
 				};
 				if let GenericArgument::Type( inner_type ) = &angle_brackets {
+					let fso_name = match &field.fso_name {
+						Named { fso_name } => { fso_name }
+						_ => { 
+							return (quote_spanned! {
+								field.rust_span =>
+								compile_error!("Options cannot be marked unnamed or existence-bool'd!");
+							}, quote!());
+						}
+					};
+					
 					quote!(
-						let #name = <#inner_type as FSOTable<Parser>>::parse(state)?;
+						if !__already_parsed_comments {
+							(__comments, __version_string) = state.consume_whitespace(false);
+							__already_parsed_comments = true;
+						}
+						let #name
+						if let Ok(_) = state.consume_string(#fso_name) {
+							#name = Some(<#inner_type as FSOTable<Parser>>::parse(state)?);
+							__already_parsed_comments = false;
+							//TODO process __comments, __version_string
+						}
+						else {
+							#name = None();
+						}
 					)
 				}
 				else {
@@ -57,8 +82,25 @@ fn fso_table_build_parse(fields: &Vec<TableField>) -> (proc_macro2::TokenStream,
 					};
 				if let GenericArgument::Type( Type::Path( TypePath { path , .. } ) ) = &angle_brackets {
 					let inner_type = &path.segments.last().unwrap().ident;
+					let fso_name_parse = match &field.fso_name {
+						Named { fso_name } => { quote!(state.consume_string(#fso_name)?;) }
+						Unnamed => { quote!() }
+						ExistenceIsBool { .. } => {
+							return (quote_spanned! {
+								field.rust_span =>
+								compile_error!("Vectors cannot be existence-bool'd!");
+							}, quote!());
+						}
+					};
+					
 					quote!(
+						if !__already_parsed_comments {
+							(__comments, __version_string) = state.consume_whitespace(false);
+						}
+						#fso_name_parse
+						__already_parsed_comments = false;
 						let mut #name = Vec::default();
+						//TODO process __comments, __version_string
 						while let Ok(__new_element_for_vec) = <#inner_type as FSOTable<Parser>>::parse(state) {
 							#name.push(__new_element_for_vec);
 						}
@@ -69,8 +111,41 @@ fn fso_table_build_parse(fields: &Vec<TableField>) -> (proc_macro2::TokenStream,
 				}
 			}
 			Type::Path( TypePath { path, ..} ) => {
+				let fso_name_parse = match &field.fso_name {
+					Named { fso_name } => { quote! {
+						state.consume_string(#fso_name)?;
+						let #name = <#path as FSOTable<Parser>>::parse(state)?;
+					} }
+					Unnamed => { quote!( let #name = <#path as FSOTable<Parser>>::parse(state)?; ) }
+					ExistenceIsBool { fso_name } => {
+						match &field.rust_type {
+							Type::Path( TypePath { path: Path { segments, .. }, ..} ) if segments.last().map_or(false, |outer_type| outer_type.ident == "bool") => {
+								quote! {
+									let #name = if let Ok(_) = state.consume_string(#fso_name) {
+										true
+									}
+									else {
+										false
+									}
+								}
+							}
+							_ =>  {
+								return (quote_spanned! {
+									field.rust_span =>
+									compile_error!("Non-bools cannot be existence-bool'd!");
+								}, quote!());
+							}
+						}
+					}
+				};
+				
 				quote!(
-					let #name = <#path as FSOTable<Parser>>::parse(state)?;
+					if !__already_parsed_comments {
+						(__comments, __version_string) = state.consume_whitespace(false);
+					}
+					__already_parsed_comments = false;
+					#fso_name_parse
+					//TODO process __comments, __version_string
 				)
 			}
 			_ => {
@@ -131,7 +206,7 @@ fn fso_build_where_clause(instancing_req: &Vec<proc_macro2::TokenStream>, where_
 	where_clause_with_parser
 }
 
-fn fso_table_struct(item_struct: &mut ItemStruct, instancing_req: Vec<proc_macro2::TokenStream>, lifetime_req: Vec<proc_macro2::TokenStream>) -> proc_macro2::TokenStream {
+fn fso_table_struct(item_struct: &mut ItemStruct, instancing_req: Vec<proc_macro2::TokenStream>, lifetime_req: Vec<proc_macro2::TokenStream>, table_prefix: Option<String>, table_suffix: Option<String>) -> proc_macro2::TokenStream {
 	let mut table_fields: Vec<TableField> = Vec::new();
 	let struct_name = &item_struct.ident;
 	let (_, ty_generics, where_clause) = item_struct.generics.split_for_impl();
@@ -154,7 +229,19 @@ fn fso_table_struct(item_struct: &mut ItemStruct, instancing_req: Vec<proc_macro
 				}
 				_ => { None }
 			});
-			field.attrs.retain(|a| !(a.path().is_ident("fso_name") || a.path().is_ident("skip")));
+			let unnamed = field.attrs.iter().find_map(|a| match &a.meta {
+				Meta::Path( path ) if path.is_ident("unnamed") => {
+					Some(())
+				}
+				_ => { None }
+			});
+			let existance_is_bool = field.attrs.iter().find_map(|a| match &a.meta {
+				Meta::Path( path ) if path.is_ident("existence") => {
+					Some(())
+				}
+				_ => { None }
+			});
+			field.attrs.retain(|a| !(a.path().is_ident("fso_name") || a.path().is_ident("skip") || a.path().is_ident("unnamed") || a.path().is_ident("existence")));
 
 			if skip.is_some() {
 				continue;
@@ -162,7 +249,20 @@ fn fso_table_struct(item_struct: &mut ItemStruct, instancing_req: Vec<proc_macro
 			
 			if let Some(ident) = field.ident.as_ref() {
 				let rust_token = ident.to_string();
-				let fso_name = forced_table_name.unwrap_or("$".to_string() + &rust_token[..1].to_string().to_uppercase() + &rust_token[1..] + ":");
+				let fso_name;
+				
+				if unnamed.is_none() {
+					let actual_name = forced_table_name.unwrap_or("$".to_string() + &rust_token[..1].to_string().to_uppercase() + &rust_token[1..] + ":");
+					if existance_is_bool.is_none() {
+						fso_name = Named { fso_name: actual_name };
+					}
+					else {
+						fso_name = ExistenceIsBool { fso_name: actual_name };
+					}
+				}
+				else {
+					fso_name = Unnamed;
+				}
 
 				table_fields.push(TableField { fso_name, rust_token: ident.clone(), rust_type, rust_span: field.span() });
 			}
@@ -183,10 +283,31 @@ fn fso_table_struct(item_struct: &mut ItemStruct, instancing_req: Vec<proc_macro
 	
 	let (parser, filler) = fso_table_build_parse(&table_fields);
 	
+	let prefix_parser = if let Some(prefix) = table_prefix{
+		quote! {
+			let (_, _) = state.consume_whitespace(false);
+			state.consume_string(#prefix)?;
+		}
+	}
+	else {
+		quote!{}
+	};
+	let suffix_parser = if let Some(suffix) = table_suffix{
+		quote! {
+			let (_, _) = state.consume_whitespace(false);
+			state.consume_string(#suffix)?;
+		}
+	}
+	else {
+		quote!{}
+	};
+	
 	quote! {
 		impl <#impl_with_generics> fso_tables::FSOTable<'parser, Parser> for #struct_name #ty_generics #where_clause_with_parser {
 			fn parse(state: &'parser Parser) -> Result<#struct_name #ty_generics, fso_tables::FSOParsingError> {
+				#prefix_parser
 				#parser
+				#suffix_parser
 				core::result::Result::Ok(#struct_name {
 					#filler
 				})
@@ -265,6 +386,9 @@ pub fn fso_table(args: TokenStream, input: TokenStream) -> TokenStream  {
 	
 	let mut enum_prefix = "".to_string();
 	let mut enum_suffix = "".to_string();
+
+	let mut table_prefix :Option<String> = None;
+	let mut table_suffix :Option<String> = None;
 	
 	struct ReqTraitParser {
 		data: Punctuated::<PathSegment, PathSep>
@@ -305,6 +429,14 @@ pub fn fso_table(args: TokenStream, input: TokenStream) -> TokenStream  {
 			enum_suffix = meta.value()?.parse::<LitStr>()?.value();
 			Ok(())
 		}
+		else if meta.path.is_ident("table_start") {
+			table_prefix = Some(meta.value()?.parse::<LitStr>()?.value());
+			Ok(())
+		}
+		else if meta.path.is_ident("table_end") {
+			table_suffix = Some(meta.value()?.parse::<LitStr>()?.value());
+			Ok(())
+		}
 		else {
 			Err(meta.error("Unsupported FSO table property"))
 		}
@@ -313,7 +445,7 @@ pub fn fso_table(args: TokenStream, input: TokenStream) -> TokenStream  {
 
 	match &mut item {
 		Item::Struct(item_struct) => {
-			post_item_out = fso_table_struct(item_struct, required_parser_traits, required_lifetimes);
+			post_item_out = fso_table_struct(item_struct, required_parser_traits, required_lifetimes, table_prefix, table_suffix);
 		}
 		Item::Enum(item_enum) => {
 			post_item_out = fso_table_enum(item_enum, required_parser_traits, required_lifetimes, enum_prefix, enum_suffix);
