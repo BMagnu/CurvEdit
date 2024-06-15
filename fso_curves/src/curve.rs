@@ -21,8 +21,15 @@ pub struct CurveKeyframe {
 	pub segment: CurveSegment
 }
 impl<'parser, Parser: FSOParser<'parser>> FSOTable<'parser, Parser> for CurveKeyframe {
-	fn parse(_state: &Parser) -> Result<Self, FSOParsingError> {
-		Err(FSOParsingError{})
+	fn parse(state: &'parser Parser) -> Result<Self, FSOParsingError> {
+		state.consume_whitespace_inline(&[]);
+		state.consume_string("(")?;
+		let x = <f32 as FSOTable<Parser>>::parse(state)?;
+		let y = <f32 as FSOTable<Parser>>::parse(state)?;
+		state.consume_whitespace_inline(&[]);
+		state.consume_string("):")?;
+		
+		Err(FSOParsingError{reason: "".to_string(), line: 0 })
 	}
 
 	fn dump(&self) { }
@@ -66,7 +73,7 @@ impl Default for Curve {
 pub enum CurveSegment{
 	Constant,
 	Linear,
-	Polynomial { ease_in: bool, degree: f32 },
+	Polynomial { degree: f32, ease_in: bool },
 	Circular { ease_in: bool },
 	Subcurve { curve: String }
 }

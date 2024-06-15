@@ -33,7 +33,7 @@ fn fso_table_build_parse(fields: &Vec<TableField>) -> (proc_macro2::TokenStream,
 				};
 				if let GenericArgument::Type( inner_type ) = &angle_brackets {
 					quote!(
-						let #name = #inner_type::parse(state)?;
+						let #name = <#inner_type as FSOTable<Parser>>::parse(state)?;
 					)
 				}
 				else {
@@ -52,7 +52,7 @@ fn fso_table_build_parse(fields: &Vec<TableField>) -> (proc_macro2::TokenStream,
 					let inner_type = &path.segments.last().unwrap().ident;
 					quote!(
 						let mut #name = Vec::default();
-						while let Ok(__new_element_for_vec) = #inner_type::parse(state) {
+						while let Ok(__new_element_for_vec) = <#inner_type as FSOTable<Parser>>::parse(state) {
 							#name.push(__new_element_for_vec);
 						}
 					)
@@ -63,7 +63,7 @@ fn fso_table_build_parse(fields: &Vec<TableField>) -> (proc_macro2::TokenStream,
 			}
 			Type::Path( TypePath { path, ..} ) => {
 				quote!(
-					let #name = #path::parse(state)?;
+					let #name = <#path as FSOTable<Parser>>::parse(state)?;
 				)
 			}
 			_ => {
