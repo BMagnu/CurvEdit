@@ -13,6 +13,7 @@ pub struct CurveTable {
 #[fso_table]
 pub struct Curve {
 	pub name: String,
+	#[fso_name="$KeyFrames:"]
 	pub keyframes: Vec<CurveKeyframe>
 }
 
@@ -23,17 +24,28 @@ pub struct CurveKeyframe {
 }
 impl<'parser, Parser: FSOParser<'parser>> FSOTable<'parser, Parser> for CurveKeyframe {
 	fn parse(state: &'parser Parser) -> Result<Self, FSOParsingError> {
-		state.consume_whitespace_inline(&[]);
+		state.consume_whitespace(false);
 		state.consume_string("(")?;
 		let x = <f32 as FSOTable<Parser>>::parse(state)?;
 		let y = <f32 as FSOTable<Parser>>::parse(state)?;
 		state.consume_whitespace_inline(&[]);
 		state.consume_string("):")?;
+		state.consume_whitespace_inline(&[]);
 		let segment = <CurveSegment as FSOTable<Parser>>::parse(state)?;
 		Ok(CurveKeyframe { x, y, segment })
 	}
 
 	fn dump(&self) { }
+}
+
+#[fso_table]
+pub enum CurveSegment{
+	Constant,
+	Linear,
+	Polynomial { degree: f32, ease_in: Option<bool> },
+	Circular { ease_in: Option<bool> },
+	#[use_as_default_string]
+	Subcurve { curve: String }
 }
 
 impl Curve {
@@ -71,14 +83,6 @@ impl Default for Curve {
 	}
 }
 
-#[fso_table]
-pub enum CurveSegment{
-	Constant,
-	Linear,
-	Polynomial { degree: f32, ease_in: bool },
-	Circular { ease_in: bool },
-	Subcurve { curve: String }
-}
 impl CurveSegment {
 	pub fn calculate(&self, x: f32, current: &CurveKeyframe, next: &CurveKeyframe, curves: &Vec<&Curve>) -> f32 {
 		self.calculate_from_delta((x - current.x) / (next.x - current.x), curves) * (next.y - current.y) + current.y
@@ -89,7 +93,7 @@ impl CurveSegment {
 			CurveSegment::Constant => { 0f32 }
 			CurveSegment::Linear => { t }
 			&CurveSegment::Polynomial { ease_in, degree } => {
-				if ease_in {
+				if ease_in.unwrap_or(true) {
 					t.powf(degree)
 				}
 				else {
@@ -97,7 +101,7 @@ impl CurveSegment {
 				}
 			}
 			&CurveSegment::Circular { ease_in } => {
-				if ease_in {
+				if ease_in.unwrap_or(true) {
 					1f32 - (1f32 - t.powi(2)).sqrt()
 				}
 				else {
@@ -130,7 +134,7 @@ pub static BUILTIN_CURVES: Lazy<Vec<Curve>> = Lazy::new(|| {
 					name += "Rev";
 				}
 
-				let ease_in = ease != EASE::EaseOut;
+				let ease_in = Some(ease != EASE::EaseOut);
 
 				keyframes.push(CurveKeyframe {
 					x: 0f32,
@@ -151,10 +155,10 @@ pub static BUILTIN_CURVES: Lazy<Vec<Curve>> = Lazy::new(|| {
 						y: 0.5f32,
 						segment: match interptype {
 							TYPE::Circ => {
-								CurveSegment::Circular { ease_in: !ease_in }
+								CurveSegment::Circular { ease_in: Some(!ease_in.unwrap()) }
 							}
 							interptype => {
-								CurveSegment::Polynomial { ease_in: !ease_in, degree: (interptype as i32) as f32 }
+								CurveSegment::Polynomial { ease_in: Some(!ease_in.unwrap()), degree: (interptype as i32) as f32 }
 							}
 						}
 					});

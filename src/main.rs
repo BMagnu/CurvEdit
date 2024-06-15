@@ -1,4 +1,6 @@
-use fso_curves::{BUILTIN_CURVES, Curve};
+use std::path::Path;
+use fso_curves::{BUILTIN_CURVES, Curve, CurveTable};
+use fso_tables::{FSOTable, FSOTableFileParser};
 
 fn main() {
 	for builtin in BUILTIN_CURVES.iter() {
@@ -16,5 +18,14 @@ fn main() {
 				 curve.calculate(0.75f32, &available_curves),
 				 curve.calculate(1f32, &available_curves));
 	}
-
+	
+	let _table = match FSOTableFileParser::new(Path::new("/home/birk/Downloads/curves.tbl")).and_then(|parser| CurveTable::parse(&parser)) {
+		Ok(table) => { table }
+		Err(error) => {
+			print!("{}", error);
+			return;
+		}
+	};
+	
+	println!("success!");
 }

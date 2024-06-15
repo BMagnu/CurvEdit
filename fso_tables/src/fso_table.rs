@@ -163,17 +163,17 @@ pub struct FSOTableFileParser {
 	state: RefCell<FSOParserState>
 }
 impl FSOTableFileParser {
-	pub fn new(path: &Path) -> Result<Self, impl Error>{
+	pub fn new(path: &Path) -> Result<Self, FSOParsingError>{
 		let mut s = String::new();
 		
 		let mut file = match File::open(&path) {
 			Ok(file) => { file }
-			Err(_) => { return Err( FSOParsingError { reason: format!("Could not open file {}!", path.to_string_lossy()), line: 0 }) }
+			Err(err) => { return Err( FSOParsingError { reason: format!("Could not open file {}! Reason: {}.", path.to_string_lossy(), err), line: 0 }) }
 		};
 
 		match file.read_to_string(&mut s) {
 			Ok(_) => {  }
-			Err(_) => { return Err( FSOParsingError { reason: format!("Could not read from file {}!", path.to_string_lossy()), line: 0 }) }
+			Err(err) => { return Err( FSOParsingError { reason: format!("Could not read from file {}! Reason: {}.", path.to_string_lossy(), err), line: 0 }) }
 		};
 
 		let parser = FSOTableFileParser {

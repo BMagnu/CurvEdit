@@ -29,7 +29,7 @@ fn fso_table_build_parse(fields: &Vec<TableField>) -> (proc_macro2::TokenStream,
 	};
 	let mut fill = proc_macro2::TokenStream::new();
 	
-	for (field_num, field) in fields.iter().enumerate() {
+	for (_field_num, field) in fields.iter().enumerate() {
 		let name = &field.rust_token;
 		
 		let new_parse = match &field.rust_type {
@@ -171,8 +171,32 @@ fn fso_table_build_parse(fields: &Vec<TableField>) -> (proc_macro2::TokenStream,
 }
 
 fn fso_enum_build_variant_parse(ident: &Ident, field_type: &Type) -> proc_macro2::TokenStream {
-	quote! {
-		#ident: { <#field_type as FSOTable<Parser>>::parse(state)? }
+	match field_type {
+		Type::Path( TypePath { path: Path { segments, .. }, ..} ) if segments.last().map_or(false, |outer_type| outer_type.ident == "Option") => {
+			let angle_brackets =
+				if let AngleBracketed(inner_types) = &segments.last().unwrap().arguments {
+					inner_types.args.first().unwrap()
+				} else {
+					panic!("Unparametrized Option found!");
+				};
+			if let GenericArgument::Type(inner_type) = &angle_brackets {
+				quote! {
+					#ident: { 
+						if let Ok(data) = <#inner_type as FSOTable<Parser>>::parse(state) {
+							Some(data)
+						}
+						else { None }
+					}
+				}
+			} else {
+				panic!("Unparametrized Option found!");
+			}
+		}
+		_ => { 
+			quote! {
+				#ident: { <#field_type as FSOTable<Parser>>::parse(state)? }
+			}
+		}
 	}
 }
 
@@ -323,40 +347,94 @@ fn fso_table_enum(item_enum: &mut ItemEnum, instancing_req: Vec<proc_macro2::Tok
 	
 	let mut parser = quote!();
 	let mut fail_message = "Expected one of ".to_string();
+	let mut option_nr = 0;
 	
-	for option in &item_enum.variants{
+	let mut has_early_out = false;
+	let num_variants = item_enum.variants.len();
+	
+	for option in &mut item_enum.variants {
 		let fso_name = format!("{}{}{}", prefix, option.ident, suffix);
 		fail_message = format!("{}{}, ", fail_message, fso_name);
 		
+		let default_enum_case_store_in = option.attrs.iter().find_map(|a| match &a.meta {
+			Meta::Path( path ) if path.is_ident("use_as_default_string") => { 
+				if option_nr == num_variants - 1 && option.fields.len() == 1 {
+					Some(Ok(()))
+				}
+				else {
+					Some(Err(quote_spanned! {
+						option.span() => compile_error!("Only the last variant of an enum can be used as a default case and it must have exactly one String field.")
+					}))
+				}
+			},
+			_ => { None }
+		});
+		option.attrs.retain(|a| !a.path().is_ident("use_as_default_string"));
+
 		let mut field_parsers = quote!();
 		for field in &option.fields{
 			if let Some(ident) = &field.ident {
-				let field_parser = fso_enum_build_variant_parse(ident, &field.ty);
-				field_parsers = quote! {
-					#field_parsers
-					#field_parser,
-				};
+				if let Some(target) = &default_enum_case_store_in{
+					if let Err(err) = target {
+						return err.clone();
+					};
+					
+					field_parsers = quote! {
+						#field_parsers
+						#ident: state.read_until_whitespace(),
+					};
+				}
+				else {
+					let field_parser = fso_enum_build_variant_parse(ident, &field.ty);
+					field_parsers = quote! {
+						#field_parsers
+						#field_parser,
+					};
+				}
 			}
 			else {
 				return quote_spanned! {
-					field.span() => FSO table enums cannot have unnamed fields.
+					field.span() => compile_error!("FSO table enums cannot have unnamed fields.")
 				};
 			}
 		}
 		
 		let rust_name = &option.ident;
-		
-		parser = quote! {
-			#parser
-			if let Ok(_) = state.consume_string(#fso_name) {
+
+		if let Some(_) = &default_enum_case_store_in {
+			has_early_out = true;
+			parser = quote! {
+				#parser
 				return Ok( #struct_name::#rust_name {
 					#field_parsers
 				});
-			}
+			};
 		}
+		else {
+			parser = quote! {
+				#parser
+				if let Ok(_) = state.consume_string(#fso_name) {
+					return Ok( #struct_name::#rust_name {
+						#field_parsers
+					});
+				}
+			};
+		}
+
+		option_nr += 1;
 	}
 
 	fail_message = format!("{}got {{}}.", fail_message);
+	let fail_return = if has_early_out {
+		quote!()
+	}	
+	else{
+		quote! {
+			let current = state.get();
+			let current_cut = &current[..std::cmp::min(20, current.len())];
+			core::result::Result::Err(fso_tables::FSOParsingError { reason: format!(#fail_message, current_cut), line: state.line() })
+		}
+	};
 	
 	let impl_with_generics = fso_build_impl_generics(&lifetime_req, &item_enum.generics);
 
@@ -366,9 +444,7 @@ fn fso_table_enum(item_enum: &mut ItemEnum, instancing_req: Vec<proc_macro2::Tok
 		impl <#impl_with_generics> fso_tables::FSOTable<'parser, Parser> for #struct_name #ty_generics #where_clause_with_parser {
 			fn parse(state: &'parser Parser) -> Result<#struct_name #ty_generics, fso_tables::FSOParsingError> {
 				#parser
-				let current = state.get();
-				let current_cut = &current[..std::cmp::min(20, current.len())];
-				core::result::Result::Err(fso_tables::FSOParsingError { reason: format!(#fail_message, current_cut), line: state.line() })
+				#fail_return
 			}
 			fn dump(&self) { }
 		}
