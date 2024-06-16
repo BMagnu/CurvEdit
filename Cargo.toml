@@ -6,3 +6,6 @@ edition = "2021"
 [dependencies]
 fso_curves = { git = "https://github.com/BMagnu/fso-tables-rust.git" }
 fso_tables = { git = "https://github.com/BMagnu/fso-tables-rust.git" }
+egui = "0.27.2"
+eframe = "0.27.2"
+egui_plot = "0.27.2"
