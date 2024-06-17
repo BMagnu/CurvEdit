@@ -14,7 +14,7 @@ pub fn from_curve (
 	
 	let increment = (bounds.end - bounds.start) / (points as f32);
 	
-	(0..points)
+	(0..points + 1)
 		.map(|i| {
 			let x = bounds.start + i as f32 * increment;
 			(x as f64, curve.calculate(x, available_curves) as f64).into()
