@@ -832,8 +832,8 @@ dependencies = [
  "eframe",
  "egui",
  "egui_plot",
- "fso_curves",
  "fso_tables",
+ "fso_tables_impl",
 ]
 
 [[package]]
@@ -1191,9 +1191,16 @@ dependencies = [
 ]
 
 [[package]]
-name = "fso_curves"
+name = "fso_tables"
 version = "0.1.0"
-source = "git+https://github.com/BMagnu/fso-tables-rust.git#219c52ac0ba43dd05215e08f810f0edeb3074073"
+dependencies = [
+ "fso_tables_macro",
+ "regex",
+]
+
+[[package]]
+name = "fso_tables_impl"
+version = "0.1.0"
 dependencies = [
  "fso_tables",
  "once_cell",
@@ -1202,18 +1209,8 @@ dependencies = [
 ]
 
 [[package]]
-name = "fso_tables"
-version = "0.1.0"
-source = "git+https://github.com/BMagnu/fso-tables-rust.git#219c52ac0ba43dd05215e08f810f0edeb3074073"
-dependencies = [
- "fso_tables_macro",
- "regex",
-]
-
-[[package]]
 name = "fso_tables_macro"
 version = "0.1.0"
-source = "git+https://github.com/BMagnu/fso-tables-rust.git#219c52ac0ba43dd05215e08f810f0edeb3074073"
 dependencies = [
  "proc-macro2",
  "quote",

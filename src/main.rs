@@ -4,8 +4,8 @@ mod plot;
 
 use std::error::Error;
 use std::path::Path;
-use fso_curves::{CurveTable};
 use fso_tables::{FSOTable, FSOTableFileParser};
+use fso_tables_impl::curves::CurveTable;
 use eframe::egui;
 use eframe::emath::Align;
 use egui::{Id, Layout, Vec2};

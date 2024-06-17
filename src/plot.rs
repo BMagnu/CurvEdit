@@ -2,7 +2,7 @@ use eframe::emath::Vec2;
 use eframe::epaint::Color32;
 use egui::Id;
 use egui_plot::{Line, MarkerShape, PlotPoints, PlotUi, Points};
-use fso_curves::{BUILTIN_CURVES, Curve, CurveTable};
+use fso_tables_impl::curves::{BUILTIN_CURVES, Curve, CurveTable};
 use crate::{CURVE_RENDER_ACCURACY, CurvEditInput};
 
 pub fn from_curve (
