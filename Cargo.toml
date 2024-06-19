@@ -4,7 +4,6 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-fso_tables = { path = "../fso-tables-rust/fso_tables" }
 fso_tables_impl = { path = "../fso-tables-rust/fso_tables_impl" }
 egui = "0.27.2"
 eframe = "0.27.2"

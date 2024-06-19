@@ -34,8 +34,8 @@ pub fn plot_curve (plot_ui: &mut PlotUi, ctx: &egui::Context, input: &CurvEditIn
 	let point_size = Vec2::from(plot_ui.transform().dpos_dvalue().map(|v| (15f32 / v as f32).abs()));
 	let mut point_bounds: Vec<(Vec2, Vec2)> = Vec::new();
 	for (i, keyframe) in test_curve.keyframes.iter().enumerate() {
-		let kf_point = Points::new(PlotPoints::new(vec![[keyframe.x as f64, keyframe.y as f64]]));
-		point_bounds.push((Vec2::new(keyframe.x, keyframe.y) - point_size, Vec2::new(keyframe.x, keyframe.y) + point_size));
+		let kf_point = Points::new(PlotPoints::new(vec![[keyframe.pos.0 as f64, keyframe.pos.1 as f64]]));
+		point_bounds.push((Vec2::from(keyframe.pos) - point_size, Vec2::from(keyframe.pos) + point_size));
 		plot_ui.points(kf_point.name(format!("Keyframe {}", i + 1))
 			.filled(true)
 			.radius(5f32)
@@ -72,8 +72,8 @@ pub fn plot_curve (plot_ui: &mut PlotUi, ctx: &egui::Context, input: &CurvEditIn
 		}
 		else if let Some((pnt, dragged)) = was_dragging {
 			let kf = &mut test_curve.keyframes[pnt];
-			kf.x += dragged.x;
-			kf.y += dragged.y;
+			kf.pos.0 += dragged.x;
+			kf.pos.1 += dragged.y;
 
 			ctx.memory_mut(|mem| mem.data.remove_temp::<DraggingPntTuple>(id_dragging));
 		}

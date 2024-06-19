@@ -2,14 +2,15 @@
 
 mod plot;
 
+use fso_tables_impl::curves::CurveTable;
+use fso_tables_impl::*;
 use std::error::Error;
 use std::path::Path;
-use fso_tables::{FSOTable, FSOTableFileParser};
-use fso_tables_impl::curves::CurveTable;
 use eframe::egui;
 use eframe::emath::Align;
 use egui::{Id, Layout, Vec2};
 use egui::CursorIcon::Grabbing;
+
 use crate::plot::plot_curve;
 
 const CURVEDIT_VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -84,7 +85,10 @@ impl eframe::App for CurvEdit {
 			if let Ok(table) = table{
 				self.table = Some(table);
 			}
-			else{
+			else {
+				if let Err(FSOParsingError {..}) = table {
+					
+				}
 				//Be sad :(
 			}
 		}

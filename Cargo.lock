@@ -832,7 +832,6 @@ dependencies = [
  "eframe",
  "egui",
  "egui_plot",
- "fso_tables",
  "fso_tables_impl",
 ]
 
@@ -1214,6 +1213,7 @@ version = "0.1.0"
 dependencies = [
  "proc-macro2",
  "quote",
+ "regex",
  "syn 2.0.66",
 ]
 
