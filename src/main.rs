@@ -81,8 +81,9 @@ impl eframe::App for CurvEdit {
 			});
 		}
 		else{
-			let table = FSOTableFileParser::new(Path::new("/home/birk/Downloads/curves.tbl")).and_then(|parser| CurveTable::parse(&parser));
+			let table = FSOTableFileParser::new(Path::new("/home/birk/Downloads/curves.tbl")).and_then(|parser| CurveTable::parse(parser));
 			if let Ok(table) = table{
+				print!("{}", table.spew::<FSOTableFileParser>());
 				self.table = Some(table);
 			}
 			else {
