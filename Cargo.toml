@@ -8,6 +8,7 @@ fso_tables_impl = { path = "../fso-tables-rust/fso_tables_impl" }
 egui = "0.27.2"
 eframe = "0.27.2"
 egui_plot = "0.27.2"
+native-dialog = "0.7.0"
 
 [profile.release]
 opt-level = 3

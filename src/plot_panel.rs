@@ -3,9 +3,10 @@ use eframe::epaint::Color32;
 use egui::Id;
 use egui_plot::{Line, MarkerShape, PlotPoints, PlotUi, Points};
 use fso_tables_impl::curves::{BUILTIN_CURVES, Curve, CurveTable};
-use crate::{CURVE_RENDER_ACCURACY, CurvEditInput};
+use crate::CurvEditInput;
+use crate::curves_panel::CURVE_RENDER_ACCURACY;
 
-pub fn from_curve (
+pub(crate) fn from_curve (
 	curve: &Curve,
 	available_curves: &Vec<&Curve>,
 	points: usize,
@@ -22,18 +23,22 @@ pub fn from_curve (
 		.collect()
 }
 
-pub fn plot_curve (plot_ui: &mut PlotUi, ctx: &egui::Context, input: &CurvEditInput, table: &mut CurveTable, curve_number: usize, is_dragging: &mut bool) {
-	let available_curves = BUILTIN_CURVES.iter().chain(table.curves.iter()).map(|c| c).collect::<Vec<&Curve>>();
-	let test_curve = &table.curves[curve_number];
-	let curve_points = from_curve( test_curve, &available_curves, CURVE_RENDER_ACCURACY);
+pub(crate) fn plot_curve (plot_ui: &mut PlotUi, ctx: &egui::Context, input: &CurvEditInput, tables: &mut Vec<CurveTable>, curve_number: &(usize, usize), is_dragging: &mut bool) {
+	let mut available_curves: Vec<&Curve> = BUILTIN_CURVES.iter().collect::<Vec<&Curve>>();
+	for table in tables.iter() {
+		available_curves.extend(table.curves.iter());
+	}
+	
+	let curve = &tables[curve_number.0].curves[curve_number.1];
+	let curve_points = from_curve( curve, &available_curves, CURVE_RENDER_ACCURACY);
 
 	drop(available_curves);
 
-	plot_ui.line(Line::new(curve_points).name(&test_curve.name));
+	plot_ui.line(Line::new(curve_points).name(&curve.name));
 
 	let point_size = Vec2::from(plot_ui.transform().dpos_dvalue().map(|v| (15f32 / v as f32).abs()));
 	let mut point_bounds: Vec<(Vec2, Vec2)> = Vec::new();
-	for (i, keyframe) in test_curve.keyframes.iter().enumerate() {
+	for (i, keyframe) in curve.keyframes.iter().enumerate() {
 		let kf_point = Points::new(PlotPoints::new(vec![[keyframe.pos.0 as f64, keyframe.pos.1 as f64]]));
 		point_bounds.push((Vec2::from(keyframe.pos) - point_size, Vec2::from(keyframe.pos) + point_size));
 		plot_ui.points(kf_point.name(format!("Keyframe {}", i + 1))
@@ -44,10 +49,10 @@ pub fn plot_curve (plot_ui: &mut PlotUi, ctx: &egui::Context, input: &CurvEditIn
 	}
 
 	type DraggingPntTuple = (usize, Vec2);
-	let id_dragging = Id::new(format!("Dragging{}", test_curve.name));
+	let id_dragging = Id::new(format!("Dragging{}", curve.name));
 	let was_dragging = ctx.memory(|mem| mem.data.get_temp::<DraggingPntTuple>(id_dragging));
 
-	let test_curve = &mut table.curves[curve_number];
+	let curve = &mut tables[curve_number.0].curves[curve_number.1];
 
 	if let Some(mouse_coords) = plot_ui.pointer_coordinate() {
 		let mouse_coords: Vec2 = mouse_coords.to_vec2();
@@ -71,7 +76,7 @@ pub fn plot_curve (plot_ui: &mut PlotUi, ctx: &egui::Context, input: &CurvEditIn
 			}
 		}
 		else if let Some((pnt, dragged)) = was_dragging {
-			let kf = &mut test_curve.keyframes[pnt];
+			let kf = &mut curve.keyframes[pnt];
 			kf.pos.0 += dragged.x;
 			kf.pos.1 += dragged.y;
 

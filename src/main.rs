@@ -1,17 +1,15 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-mod plot;
+mod plot_panel;
+mod context_bar;
+mod modifier_panel;
+mod curves_panel;
 
 use fso_tables_impl::curves::CurveTable;
-use fso_tables_impl::*;
 use std::error::Error;
-use std::path::Path;
 use eframe::egui;
-use eframe::emath::Align;
-use egui::{Id, Layout, Vec2};
-use egui::CursorIcon::Grabbing;
-
-use crate::plot::plot_curve;
+use egui::Frame;
+use crate::modifier_panel::{KEYFRAME_PANEL_HEIGHT, MODIFIER_PANEL_WIDTH};
 
 const CURVEDIT_VERSION: &str = env!("CARGO_PKG_VERSION");
 fn main() -> Result<(), Box<dyn Error>> {
@@ -28,12 +26,10 @@ fn main() -> Result<(), Box<dyn Error>> {
 	)?)
 }
 
-const CURVE_RENDER_ACCURACY: usize = 500;
-
 #[derive(Default)]
 struct CurvEdit {
-	table: Option<CurveTable>
-
+	tables: Vec<CurveTable>,
+	curves_to_show: Vec<(usize, usize)>
 }
 struct CurvEditInput {
 	pointer_down: bool
@@ -41,58 +37,17 @@ struct CurvEditInput {
 impl eframe::App for CurvEdit {
 	
 	fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-		if let Some(table) = &mut self.table{
-			egui::CentralPanel::default().show(ctx, |ui| {
-				let input = ui.input(|i| { CurvEditInput { pointer_down: i.pointer.primary_down() } });
-
-				let cursor_group = Id::new("CursorGroup");
-				let mut is_dragging = false;
-
-				ui.label("This example shows how to use raw input events to implement different plot controls than the ones egui provides by default, e.g., default to zooming instead of panning when the Ctrl key is not pressed, or controlling much it zooms with each mouse wheel step.");
-
-				let total_h = ui.available_height();
-
-				ui.allocate_ui_with_layout(Vec2::new(ui.available_width(), total_h / 2f32), Layout::top_down(Align::Center), |ui|
-					egui_plot::Plot::new("plot1")
-						.allow_zoom(false)
-						.allow_drag(false)
-						.allow_scroll(false)
-						.allow_boxed_zoom(false)
-						.link_cursor(cursor_group, true, false)
-						.show(ui, |plot_ui| {
-							plot_curve(plot_ui, ctx, &input, table, 0, &mut is_dragging);
-						})
-				);
-				ui.allocate_ui_with_layout(Vec2::new(ui.available_width(), total_h / 2f32), Layout::top_down(Align::Center), |ui|
-				egui_plot::Plot::new("plot2")
-					.allow_zoom(false)
-					.allow_drag(false)
-					.allow_scroll(false)
-					.allow_boxed_zoom(false)
-					.link_cursor(cursor_group, true, false)
-					.show(ui, |plot_ui| {
-						plot_curve(plot_ui, ctx, &input, table, 1, &mut is_dragging);
-					})
-				);
-
-				if is_dragging {
-					ctx.output_mut(|o| o.cursor_icon = Grabbing);
-				}
+		egui::TopBottomPanel::top("context_bar").show(ctx, |ui| self.context_bar(ui));
+		egui::CentralPanel::default().frame(Frame::default().inner_margin(0f32)).show(ctx, |ui| {
+			egui::SidePanel::right("modifier_panel").frame(Frame::default().inner_margin(0f32)).resizable(false).exact_width(MODIFIER_PANEL_WIDTH).show_inside(ui, |ui| {
+				egui::TopBottomPanel::bottom("keyframe_panel").min_height(KEYFRAME_PANEL_HEIGHT).show_inside(ui, |ui| self.current_keyframe(ui));
+				egui::CentralPanel::default().show_inside(ui, |ui| self.curve_list(ui)).inner
 			});
-		}
-		else{
-			let table = FSOTableFileParser::new(Path::new("/home/birk/Downloads/curves.tbl")).and_then(|parser| CurveTable::parse(parser));
-			if let Ok(table) = table{
-				print!("{}", table.spew::<FSOTableFileParser>());
-				self.table = Some(table);
-			}
-			else {
-				if let Err(FSOParsingError {..}) = table {
-					
-				}
-				//Be sad :(
-			}
-		}
+			egui::CentralPanel::default().frame(Frame::default().inner_margin(0f32)).show_inside(ui, |ui| {
+				egui::TopBottomPanel::top("mode_panel").show_inside(ui, |ui| self.mode_panel(ui));
+				egui::CentralPanel::default().show_inside(ui, |ui| self.curve_panel(ui, ctx));
+			});
+		});
 	}
 }
 
