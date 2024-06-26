@@ -1,3 +1,4 @@
+use std::path::PathBuf;
 use eframe::emath::Vec2;
 use eframe::epaint::Color32;
 use egui::Id;
@@ -23,13 +24,18 @@ pub(crate) fn from_curve (
 		.collect()
 }
 
-pub(crate) fn plot_curve (plot_ui: &mut PlotUi, ctx: &egui::Context, input: &CurvEditInput, tables: &mut Vec<CurveTable>, curve_number: &(usize, usize), is_dragging: &mut bool) {
+pub(crate) fn get_available_curves(tables: &Vec<(CurveTable, PathBuf)>) -> Vec<&Curve> {
 	let mut available_curves: Vec<&Curve> = BUILTIN_CURVES.iter().collect::<Vec<&Curve>>();
-	for table in tables.iter() {
+	for (table, _) in tables.iter() {
 		available_curves.extend(table.curves.iter());
 	}
+	available_curves
+}
+
+pub(crate) fn plot_curve (plot_ui: &mut PlotUi, ctx: &egui::Context, input: &CurvEditInput, tables: &mut Vec<(CurveTable, PathBuf)>, curve_number: &(usize, usize), is_dragging: &mut bool) {
+	let available_curves = get_available_curves(tables);
 	
-	let curve = &tables[curve_number.0].curves[curve_number.1];
+	let curve = &tables[curve_number.0].0.curves[curve_number.1];
 	let curve_points = from_curve( curve, &available_curves, CURVE_RENDER_ACCURACY);
 
 	drop(available_curves);
@@ -52,7 +58,7 @@ pub(crate) fn plot_curve (plot_ui: &mut PlotUi, ctx: &egui::Context, input: &Cur
 	let id_dragging = Id::new(format!("Dragging{}", curve.name));
 	let was_dragging = ctx.memory(|mem| mem.data.get_temp::<DraggingPntTuple>(id_dragging));
 
-	let curve = &mut tables[curve_number.0].curves[curve_number.1];
+	let curve = &mut tables[curve_number.0].0.curves[curve_number.1];
 
 	if let Some(mouse_coords) = plot_ui.pointer_coordinate() {
 		let mouse_coords: Vec2 = mouse_coords.to_vec2();

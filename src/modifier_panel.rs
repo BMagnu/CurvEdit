@@ -9,7 +9,7 @@ impl CurvEdit {
 		let mut curves: Vec<(usize, usize)> = Vec::new();
 		
 		for table_num in 0 .. self.tables.len() {
-			for curve_num in 0 .. self.tables[table_num].curves.len() {
+			for curve_num in 0 .. self.tables[table_num].0.curves.len() {
 				curves.push((table_num, curve_num));
 			}
 		}

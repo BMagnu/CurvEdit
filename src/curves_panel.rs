@@ -19,7 +19,7 @@ impl CurvEdit {
 
 		for curve in &self.curves_to_show {
 			ui.allocate_ui_with_layout(Vec2::new(ui.available_width(), height), Layout::top_down(Align::Center), |ui| {
-				let name = self.tables[curve.0].curves[curve.1].name.as_str();
+				let name = self.tables[curve.0].0.curves[curve.1].name.as_str();
 				ui.label(name);
 				egui_plot::Plot::new(name)
 					.allow_zoom(false)
