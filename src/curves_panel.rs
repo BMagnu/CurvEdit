@@ -8,6 +8,7 @@ pub(crate) const CURVE_RENDER_ACCURACY: usize = 500;
 
 impl CurvEdit {
 	pub(crate) fn mode_panel(&mut self, ui: &mut Ui) {
+		//TODO
 		ui.label("very long text ");
 	}
 	
@@ -17,6 +18,7 @@ impl CurvEdit {
 		let height = (ui.available_height() - 3f32) / (self.curves_to_show.len() as f32);
 		let mut is_dragging = false;
 
+		//TODO different plot modes
 		for curve in &self.curves_to_show {
 			ui.allocate_ui_with_layout(Vec2::new(ui.available_width(), height), Layout::top_down(Align::Center), |ui| {
 				let name = self.tables[curve.0].0.curves[curve.1].name.as_str();

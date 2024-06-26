@@ -6,6 +6,8 @@ pub(crate) const KEYFRAME_PANEL_HEIGHT: f32 = 300f32;
 
 impl CurvEdit {
 	pub(crate) fn curve_list<'a>(&mut self, _ui: &mut Ui) {
+		//TODO
+
 		let mut curves: Vec<(usize, usize)> = Vec::new();
 		
 		for table_num in 0 .. self.tables.len() {
@@ -18,6 +20,6 @@ impl CurvEdit {
 	}
 	
 	pub(crate) fn current_keyframe(&mut self, _ui: &mut Ui) {
-
+		//TODO
 	}
 }

@@ -37,6 +37,8 @@ impl CurvEdit {
 		};
 
 		if let Some((idx, (note, timestamp))) = to_show {
+			//TODO properly show severity
+
 			let timestamp: &_ = timestamp.get_or_insert(Instant::now());
 
 			ui.horizontal(|ui| {
