@@ -22,13 +22,19 @@ impl CurvEdit {
 		let num_warn = self.notes.iter().filter(|(note, _)| note.severity == NoteSeverity::Warning).count();
 		let num_info = self.notes.iter().filter(|(note, _)| note.severity == NoteSeverity::Info).count();
 
-		let mut to_show = self.notes.iter_mut().enumerate().find(|(_, (note, _))| note.severity == NoteSeverity::Error);
-		if let None = to_show {
-			to_show = self.notes.iter_mut().enumerate().find(|(_, (note, _))| note.severity == NoteSeverity::Warning);
+		let to_show =
+		if num_err > 0 {
+			self.notes.iter_mut().enumerate().find(|(_, (note, _))| note.severity == NoteSeverity::Error)
 		}
-		if let None = to_show {
-			to_show = self.notes.iter_mut().enumerate().find(|(_, (note, _))| note.severity == NoteSeverity::Info);
+		else if num_warn > 0 {
+			self.notes.iter_mut().enumerate().find(|(_, (note, _))| note.severity == NoteSeverity::Warning)
 		}
+		else if num_info > 0 {
+			self.notes.iter_mut().enumerate().find(|(_, (note, _))| note.severity == NoteSeverity::Info)
+		}
+		else {
+			None
+		};
 
 		if let Some((idx, (note, timestamp))) = to_show {
 			let timestamp: &_ = timestamp.get_or_insert(Instant::now());
