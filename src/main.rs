@@ -43,7 +43,7 @@ impl eframe::App for CurvEdit {
 	
 	fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
 		egui::TopBottomPanel::top("context_bar").show(ctx, |ui| self.context_bar(ui));
-		egui::TopBottomPanel::bottom("note_bar").show(ctx, |ui| self.note_bar(ui));
+		egui::TopBottomPanel::bottom("note_bar").show(ctx, |ui| self.note_bar(ui, ctx));
 		egui::CentralPanel::default().frame(Frame::default().inner_margin(0f32)).show(ctx, |ui| {
 			egui::SidePanel::right("modifier_panel").frame(Frame::default().inner_margin(0f32)).resizable(false).exact_width(MODIFIER_PANEL_WIDTH).show_inside(ui, |ui| {
 				egui::TopBottomPanel::bottom("keyframe_panel").min_height(KEYFRAME_PANEL_HEIGHT).show_inside(ui, |ui| self.current_keyframe(ui));

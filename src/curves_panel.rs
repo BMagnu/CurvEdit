@@ -14,7 +14,7 @@ impl CurvEdit {
 	pub(crate) fn curve_panel(&mut self, ui: &mut Ui, ctx: &Context) {
 		let input = ui.input(|i| { CurvEditInput { pointer_down: i.pointer.primary_down() } });
 		let cursor_group = Id::new("CursorGroup");
-		let height = ui.available_height() / (self.curves_to_show.len() as f32);
+		let height = (ui.available_height() - 3f32) / (self.curves_to_show.len() as f32);
 		let mut is_dragging = false;
 
 		for curve in &self.curves_to_show {
