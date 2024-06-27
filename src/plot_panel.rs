@@ -6,6 +6,8 @@ use fso_tables_impl::curves::{BUILTIN_CURVES, Curve, CurveTable};
 use crate::{CurvEditInput, TableData};
 use crate::curves_panel::CURVE_RENDER_ACCURACY;
 
+pub(crate) const KEYFRAME_MIN_X_DISTANCE: f32 = 0.001;
+
 pub(crate) fn from_curve (
 	curve: &Curve,
 	available_curves: &Vec<&Curve>,
@@ -81,8 +83,11 @@ pub(crate) fn plot_curve (plot_ui: &mut PlotUi, ctx: &egui::Context, input: &Cur
 			}
 		}
 		else if let Some((pnt, dragged)) = was_dragging {
+			let lower_bound = if pnt <= 0 { -f32::INFINITY } else { curve.keyframes[pnt - 1].pos.0 + KEYFRAME_MIN_X_DISTANCE };
+			let upper_bound = if pnt >= curve.keyframes.len() - 1 { f32::INFINITY } else { curve.keyframes[pnt + 1].pos.0 - KEYFRAME_MIN_X_DISTANCE };
+
 			let kf = &mut curve.keyframes[pnt];
-			kf.pos.0 += dragged.x;
+			kf.pos.0 = (kf.pos.0 + dragged.x).clamp(lower_bound, upper_bound);
 			kf.pos.1 += dragged.y;
 
 			tables[curve_number.0].1.dirty = true;
