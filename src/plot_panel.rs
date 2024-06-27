@@ -85,6 +85,7 @@ pub(crate) fn plot_curve (plot_ui: &mut PlotUi, ctx: &egui::Context, input: &Cur
 			kf.pos.0 += dragged.x;
 			kf.pos.1 += dragged.y;
 
+			tables[curve_number.0].1.dirty = true;
 			ctx.memory_mut(|mem| mem.data.remove_temp::<DraggingPntTuple>(id_dragging));
 		}
 	}
