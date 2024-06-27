@@ -1,7 +1,7 @@
 use std::fs;
 use std::mem::swap;
 use std::time::Instant;
-use egui::{Align, Layout, Ui, Vec2};
+use egui::{Align, Layout, Ui};
 use fso_tables_impl::curves::{Curve, CurveTable};
 use native_dialog::{MessageDialog, MessageType};
 use crate::{CurvEdit, TableData};
@@ -10,6 +10,8 @@ use crate::note_bar::{Note, NoteSeverity};
 pub(crate) const MODIFIER_PANEL_WIDTH: f32 = 300f32;
 pub(crate) const KEYFRAME_PANEL_HEIGHT: f32 = 300f32;
 
+pub(crate) const CURVE_LABEL_HEIGHT: f32 = 22f32;
+
 impl CurvEdit {
 	pub(crate) fn curve_list<'a>(&mut self, ui: &mut Ui) {
 		let mut curves: Vec<(usize, usize)> = Vec::new();
@@ -17,6 +19,7 @@ impl CurvEdit {
 
 		for (table_num, (table, file_data)) in self.tables.iter_mut().enumerate() {
 			ui.horizontal(|ui| {
+				ui.set_height(CURVE_LABEL_HEIGHT);
 				if table_entry(ui, table, file_data, &mut self.notes) {
 					remove_table = Some(table_num);
 				}
@@ -27,7 +30,8 @@ impl CurvEdit {
 			for (curve_num, curve) in table.curves.iter().enumerate() {
 				let is_clicked = self.curves_to_show.contains(&(table_num, curve_num));
 				ui.horizontal(|ui| {
-				let (display, remove, up, down) = curve_entry(ui, curve, is_clicked, curve_num < table.curves.len() - 1, curve_num > 0);
+					ui.set_height(CURVE_LABEL_HEIGHT);
+					let (display, remove, up, down) = curve_entry(ui, curve, is_clicked, curve_num < table.curves.len() - 1, curve_num > 0);
 					let mut curve_num_to_display = switch_curves.map_or(curve_num, |(switch, other)| if other == curve_num { switch } else { curve_num });
 
 					if remove {
@@ -79,7 +83,7 @@ fn table_entry(ui: &mut Ui, table: &CurveTable, file_data: &mut TableData, notes
 	let filename = file_data.file.file_name().map_or("".to_string(), |filename| filename.to_string_lossy().to_string());
 	ui.label(&filename);
 
-	ui.allocate_ui_with_layout(Vec2::new(ui.available_width(), 0f32), Layout::right_to_left(Align::Center), |ui| -> bool {
+	ui.with_layout(Layout::right_to_left(Align::Center), |ui| -> bool {
 		let close = if ui.button("X").clicked() {
 			if file_data.dirty {
 				MessageDialog::new()
@@ -120,7 +124,7 @@ fn curve_entry(ui: &mut Ui, curve: &Curve, mut is_clicked: bool, can_go_down: bo
 	ui.add_space(20f32);
 	ui.label(&curve.name);
 
-	ui.allocate_ui_with_layout(Vec2::new(ui.available_width(), 0f32), Layout::right_to_left(Align::Center), |ui| -> (bool, bool, bool, bool) {
+	ui.with_layout(Layout::right_to_left(Align::Center), |ui| -> (bool, bool, bool, bool) {
 		let remove = if ui.button("X").clicked() {
 			MessageDialog::new()
 				.set_title("Delete curve?")

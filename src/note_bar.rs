@@ -43,7 +43,7 @@ impl CurvEdit {
 
 			ui.horizontal(|ui| {
 				ui.label(&note.text);
-				ui.allocate_ui_with_layout(ui.available_size(), Layout::right_to_left(Align::Center), |ui| {
+				ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
 					ui.horizontal(|ui| {
 						ui.label(format!("E: {num_err}, W: {num_warn}, I: {num_info}"));
 					});
