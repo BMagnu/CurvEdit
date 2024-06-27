@@ -12,8 +12,6 @@ pub(crate) const KEYFRAME_PANEL_HEIGHT: f32 = 300f32;
 
 impl CurvEdit {
 	pub(crate) fn curve_list<'a>(&mut self, ui: &mut Ui) {
-		//TODO
-
 		let mut curves: Vec<(usize, usize)> = Vec::new();
 		let mut remove_table: Option<usize> = None;
 
@@ -33,20 +31,22 @@ impl CurvEdit {
 					let mut curve_num_to_display = switch_curves.map_or(curve_num, |(switch, other)| if other == curve_num { switch } else { curve_num });
 
 					if remove {
+						file_data.dirty = true;
 						remove_curve = Some(curve_num);
 					}
 					if up {
+						file_data.dirty = true;
 						switch_curves = Some((curve_num - 1, curve_num));
 						curve_num_to_display -= 1;
 						curves = curves.iter().map(|(table, curve)| (*table, if *table == table_num && *curve == curve_num - 1 { *curve + 1 } else { *curve })).collect();
 					}
 					if down {
+						file_data.dirty = true;
 						//Other party is handled by map above
 						switch_curves = Some((curve_num, curve_num + 1));
 						curve_num_to_display += 1;
 					}
 					if display {
-
 						curves.push((table_num, curve_num_to_display));
 					}
 				});
@@ -71,6 +71,7 @@ impl CurvEdit {
 	}
 
 	pub(crate) fn current_keyframe(&mut self, _ui: &mut Ui) {
+		//TODO
 	}
 }
 
