@@ -3,7 +3,7 @@ use egui::{menu, Ui};
 use fso_tables_impl::curves::CurveTable;
 use fso_tables_impl::FSOTableFileParser;
 use native_dialog::FileDialog;
-use crate::CurvEdit;
+use crate::{CurvEdit, TableData};
 use crate::note_bar::{Note, NoteSeverity};
 use crate::plot_panel::get_available_curves;
 
@@ -13,7 +13,7 @@ impl CurvEdit {
 			ui.menu_button("File", |ui| {
 				if ui.button("Open Table").clicked() {
 					let path = FileDialog::new()
-						.set_location(self.tables.last().map_or(&PathBuf::default(), |table| &table.1))
+						.set_location(self.tables.last().map_or(&PathBuf::default(), |table| &table.1.file))
 						.add_filter("FSO Table", &["tbl", "tbm"])
 						.show_open_single_file();
 					if let Ok(Some(path)) = path {
@@ -34,7 +34,7 @@ impl CurvEdit {
 										}, None));
 									}
 									else {
-										self.tables.push((table, path));
+										self.tables.push((table, TableData { file: path, dirty: false }));
 									}
 								}
 								Err (error) => {

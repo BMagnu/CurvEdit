@@ -31,8 +31,14 @@ fn main() -> Result<(), Box<dyn Error>> {
 }
 
 #[derive(Default)]
+struct TableData {
+	file: PathBuf,
+	dirty: bool
+}
+
+#[derive(Default)]
 struct CurvEdit {
-	tables: Vec<(CurveTable, PathBuf)>,
+	tables: Vec<(CurveTable, TableData)>,
 	curves_to_show: Vec<(usize, usize)>,
 	notes: Vec<(Note, Option<Instant>)>
 }
@@ -46,8 +52,12 @@ impl eframe::App for CurvEdit {
 		egui::TopBottomPanel::bottom("note_bar").show(ctx, |ui| self.note_bar(ui, ctx));
 		egui::CentralPanel::default().frame(Frame::default().inner_margin(0f32)).show(ctx, |ui| {
 			egui::SidePanel::right("modifier_panel").frame(Frame::default().inner_margin(0f32)).resizable(false).exact_width(MODIFIER_PANEL_WIDTH).show_inside(ui, |ui| {
-				egui::TopBottomPanel::bottom("keyframe_panel").min_height(KEYFRAME_PANEL_HEIGHT).show_inside(ui, |ui| self.current_keyframe(ui));
-				egui::CentralPanel::default().show_inside(ui, |ui| self.curve_list(ui)).inner
+				egui::TopBottomPanel::bottom("keyframe_panel").exact_height(KEYFRAME_PANEL_HEIGHT).show_inside(ui, |ui| self.current_keyframe(ui));
+				egui::CentralPanel::default().show_inside(ui, |ui| {
+					egui::ScrollArea::vertical().show(ui, |ui| {
+						self.curve_list(ui);
+					});
+				});
 			});
 			egui::CentralPanel::default().frame(Frame::default().inner_margin(0f32)).show_inside(ui, |ui| {
 				egui::TopBottomPanel::top("mode_panel").show_inside(ui, |ui| self.mode_panel(ui));

@@ -1,10 +1,9 @@
-use std::path::PathBuf;
 use eframe::emath::Vec2;
 use eframe::epaint::Color32;
 use egui::Id;
 use egui_plot::{Line, MarkerShape, PlotPoints, PlotUi, Points};
 use fso_tables_impl::curves::{BUILTIN_CURVES, Curve, CurveTable};
-use crate::CurvEditInput;
+use crate::{CurvEditInput, TableData};
 use crate::curves_panel::CURVE_RENDER_ACCURACY;
 
 pub(crate) fn from_curve (
@@ -24,7 +23,7 @@ pub(crate) fn from_curve (
 		.collect()
 }
 
-pub(crate) fn get_available_curves(tables: &Vec<(CurveTable, PathBuf)>) -> Vec<&Curve> {
+pub(crate) fn get_available_curves(tables: &Vec<(CurveTable, TableData)>) -> Vec<&Curve> {
 	let mut available_curves: Vec<&Curve> = BUILTIN_CURVES.iter().collect::<Vec<&Curve>>();
 	for (table, _) in tables.iter() {
 		available_curves.extend(table.curves.iter());
@@ -32,7 +31,7 @@ pub(crate) fn get_available_curves(tables: &Vec<(CurveTable, PathBuf)>) -> Vec<&
 	available_curves
 }
 
-pub(crate) fn plot_curve (plot_ui: &mut PlotUi, ctx: &egui::Context, input: &CurvEditInput, tables: &mut Vec<(CurveTable, PathBuf)>, curve_number: &(usize, usize), is_dragging: &mut bool) {
+pub(crate) fn plot_curve (plot_ui: &mut PlotUi, ctx: &egui::Context, input: &CurvEditInput, tables: &mut Vec<(CurveTable, TableData)>, curve_number: &(usize, usize), is_dragging: &mut bool) {
 	let available_curves = get_available_curves(tables);
 	
 	let curve = &tables[curve_number.0].0.curves[curve_number.1];
