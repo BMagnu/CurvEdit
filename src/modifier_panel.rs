@@ -1,8 +1,8 @@
 use std::fs;
 use std::mem::swap;
 use std::time::Instant;
-use egui::{Align, Layout, Ui};
-use fso_tables_impl::curves::{Curve, CurveTable};
+use egui::{Align, Id, Layout, Ui};
+use fso_tables_impl::curves::{Curve, CurveSegment, CurveTable};
 use native_dialog::{MessageDialog, MessageType};
 use crate::{CurvEdit, TableData};
 use crate::note_bar::{Note, NoteSeverity};
@@ -13,9 +13,10 @@ pub(crate) const KEYFRAME_PANEL_HEIGHT: f32 = 300f32;
 pub(crate) const CURVE_LABEL_HEIGHT: f32 = 22f32;
 
 impl CurvEdit {
-	pub(crate) fn curve_list<'a>(&mut self, ui: &mut Ui) {
+	pub(crate) fn curve_list<'a>(&mut self, ui: &mut Ui, ctx: &egui::Context) {
 		let mut curves: Vec<(usize, usize)> = Vec::new();
 		let mut remove_table: Option<usize> = None;
+		let mut rename_curves: Vec<(usize, usize, String)> = Vec::new();
 
 		for (table_num, (table, file_data)) in self.tables.iter_mut().enumerate() {
 			ui.horizontal(|ui| {
@@ -31,7 +32,7 @@ impl CurvEdit {
 				let is_clicked = self.curves_to_show.contains(&(table_num, curve_num));
 				ui.horizontal(|ui| {
 					ui.set_height(CURVE_LABEL_HEIGHT);
-					let (display, remove, up, down) = curve_entry(ui, curve, is_clicked, curve_num < table.curves.len() - 1, curve_num > 0);
+					let (display, remove, up, down, new_name) = curve_entry(ui, curve, ctx, is_clicked, curve_num < table.curves.len() - 1, curve_num > 0);
 					let mut curve_num_to_display = switch_curves.map_or(curve_num, |(switch, other)| if other == curve_num { switch } else { curve_num });
 
 					if remove {
@@ -53,6 +54,9 @@ impl CurvEdit {
 					if display {
 						curves.push((table_num, curve_num_to_display));
 					}
+					if let Some(new_name) = new_name {
+						rename_curves.push((table_num, curve_num, new_name));
+					}
 				});
 			}
 
@@ -66,6 +70,37 @@ impl CurvEdit {
 			}
 		}
 
+		for (table_num, curve_num, mut new_name) in rename_curves {
+			if self.tables.iter().find(|(table, _)| table.curves.iter().find(|curve| curve.name == new_name).is_some()).is_some() {
+				self.notes.push((Note {
+					text: format!("Cannot rename {} to {}: Curve with this name already exists!", self.tables[table_num].0.curves[curve_num].name, new_name),
+					severity: NoteSeverity::Error,
+					timeout: 5f32
+				}, None));
+			}
+			else {
+				swap(&mut self.tables[table_num].0.curves[curve_num].name, &mut new_name);
+				let old_name = new_name;
+				let new_name = self.tables[table_num].0.curves[curve_num].name.clone();
+				//We also need to find all references to this in subcurves and update them.
+				for (table, file_data) in self.tables.iter_mut() {
+					for curve in table.curves.iter_mut() {
+						for keyframe in curve.keyframes.iter_mut() {
+							match &mut keyframe.segment {
+								CurveSegment::Subcurve { curve: ref mut name } if *name == old_name => {
+									*name = new_name.clone();
+									file_data.dirty = true;
+								}
+								_ => {}
+							}
+						}
+					}
+				}
+				
+				self.tables[table_num].1.dirty = true;
+			}
+		}
+		
 		if let Some(to_remove) = remove_table {
 			self.tables.remove(to_remove);
 			curves = curves.iter().filter(|(table, _)| *table != to_remove).map(|(table, curve)| (if *table > to_remove { *table - 1 } else { *table }, *curve)).collect();
@@ -119,12 +154,11 @@ fn table_entry(ui: &mut Ui, table: &CurveTable, file_data: &mut TableData, notes
 	}).inner
 }
 
-fn curve_entry(ui: &mut Ui, curve: &Curve, mut is_clicked: bool, can_go_down: bool, can_go_up: bool) -> (bool, bool, bool, bool) {
+fn curve_entry(ui: &mut Ui, curve: &Curve, ctx: &egui::Context, mut is_clicked: bool, can_go_down: bool, can_go_up: bool) -> (bool, bool, bool, bool, Option<String>) {
 	//(display, remove, up, down)
 	ui.add_space(20f32);
-	ui.label(&curve.name);
 
-	ui.with_layout(Layout::right_to_left(Align::Center), |ui| -> (bool, bool, bool, bool) {
+	ui.with_layout(Layout::right_to_left(Align::Center), |ui| -> (bool, bool, bool, bool, Option<String>) {
 		let remove = if ui.button("X").clicked() {
 			MessageDialog::new()
 				.set_title("Delete curve?")
@@ -138,6 +172,24 @@ fn curve_entry(ui: &mut Ui, curve: &Curve, mut is_clicked: bool, can_go_down: bo
 		let up = ui.add_enabled(can_go_up, egui::Button::new("U")).clicked();
 		let down = ui.add_enabled(can_go_down, egui::Button::new("D")).clicked();
 		ui.toggle_value(&mut is_clicked, "S");
-		(is_clicked, remove, up, down)
+
+		let id = Id::new(format!("name_{}", curve.name));
+		let was_editing = ctx.memory(|mem| mem.data.get_temp::<String>(id));
+		let was_typing = was_editing.is_some();
+		let mut new_name_return: Option<String> = None;
+
+		let mut new_name = was_editing.unwrap_or(curve.name.clone());
+		if ui.text_edit_singleline(&mut new_name).lost_focus() {
+			new_name_return = Some(new_name);
+			ctx.memory_mut(|mem| mem.data.remove_temp::<String>(id));
+		}
+		else if new_name != curve.name {
+			ctx.memory_mut(|mem| mem.data.insert_temp::<String>(id, new_name));
+		}
+		else if was_typing {
+			ctx.memory_mut(|mem| mem.data.remove_temp::<String>(id));
+		}
+		
+		(is_clicked, remove, up, down, new_name_return)
 	}).inner
 }

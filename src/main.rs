@@ -55,7 +55,7 @@ impl eframe::App for CurvEdit {
 				egui::TopBottomPanel::bottom("keyframe_panel").exact_height(KEYFRAME_PANEL_HEIGHT).show_inside(ui, |ui| self.current_keyframe(ui));
 				egui::CentralPanel::default().show_inside(ui, |ui| {
 					egui::ScrollArea::vertical().show(ui, |ui| {
-						self.curve_list(ui);
+						self.curve_list(ui, ctx);
 					});
 				});
 			});
