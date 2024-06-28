@@ -2,7 +2,7 @@ use std::fs;
 use std::mem::swap;
 use std::time::Instant;
 use egui::{Align, Id, Layout, Ui};
-use fso_tables_impl::curves::{Curve, CurveSegment, CurveTable};
+use fso_tables_impl::curves::{Curve, CurveKeyframe, CurveSegment, CurveTable};
 use native_dialog::{MessageDialog, MessageType};
 use crate::{CurvEdit, TableData};
 use crate::note_bar::{Note, NoteSeverity};
@@ -17,6 +17,7 @@ impl CurvEdit {
 		let mut curves: Vec<(usize, usize)> = Vec::new();
 		let mut remove_table: Option<usize> = None;
 		let mut rename_curves: Vec<(usize, usize, String)> = Vec::new();
+		let mut add_curve: Option<(usize, String)> = None;
 
 		for (table_num, (table, file_data)) in self.tables.iter_mut().enumerate() {
 			ui.horizontal(|ui| {
@@ -68,6 +69,26 @@ impl CurvEdit {
 				let (front, back) = table.curves.split_at_mut(second);
 				swap(&mut front[first], &mut back[0]);
 			}
+
+			ui.horizontal(|ui| {
+				ui.add_space(20f32);
+				
+				ui.label("Add curve: ");
+				
+				let id = Id::new(format!("new_curve_{}", file_data.file.to_string_lossy()));
+				let was_editing = ctx.memory(|mem| mem.data.get_temp::<String>(id));
+				let was_typing = was_editing.is_some();
+				let mut name = was_editing.unwrap_or("".to_string());
+
+				if ui.text_edit_singleline(&mut name).lost_focus() {
+					add_curve = Some((table_num, name));
+					ctx.memory_mut(|mem| mem.data.remove_temp::<String>(id));
+				} else if name != "" {
+					ctx.memory_mut(|mem| mem.data.insert_temp::<String>(id, name));
+				} else if was_typing {
+					ctx.memory_mut(|mem| mem.data.remove_temp::<String>(id));
+				}
+			});
 		}
 
 		for (table_num, curve_num, mut new_name) in rename_curves {
@@ -104,6 +125,25 @@ impl CurvEdit {
 		if let Some(to_remove) = remove_table {
 			self.tables.remove(to_remove);
 			curves = curves.iter().filter(|(table, _)| *table != to_remove).map(|(table, curve)| (if *table > to_remove { *table - 1 } else { *table }, *curve)).collect();
+		}
+		
+		if let Some((table, name)) = add_curve {
+			if self.tables.iter().find(|(table, _)| table.curves.iter().find(|curve| curve.name == name).is_some()).is_some() {
+				self.notes.push((Note {
+					text: format!("Cannot add {}: Curve with this name already exists!", name),
+					severity: NoteSeverity::Error,
+					timeout: 5f32
+				}, None));
+			}
+			else {
+				let keyframes = vec![
+					CurveKeyframe::new((0f32, 0f32), CurveSegment::Linear),
+					CurveKeyframe::new((1f32, 1f32), CurveSegment::Constant)
+				];
+				let (table, file_data) = &mut self.tables[table];
+				file_data.dirty = true;
+				table.curves.push(Curve::new(name, keyframes));
+			}
 		}
 
 		self.curves_to_show = curves;
