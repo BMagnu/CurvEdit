@@ -40,7 +40,8 @@ struct TableData {
 struct CurvEdit {
 	tables: Vec<(CurveTable, TableData)>,
 	curves_to_show: Vec<(usize, usize)>,
-	notes: Vec<(Note, Option<Instant>)>
+	notes: Vec<(Note, Option<Instant>)>,
+	selected_keyframe: Option<(usize, usize, usize)>
 }
 struct CurvEditInput {
 	pointer_down: bool
@@ -52,7 +53,7 @@ impl eframe::App for CurvEdit {
 		egui::TopBottomPanel::bottom("note_bar").show(ctx, |ui| self.note_bar(ui, ctx));
 		egui::CentralPanel::default().frame(Frame::default().inner_margin(0f32)).show(ctx, |ui| {
 			egui::SidePanel::right("modifier_panel").frame(Frame::default().inner_margin(0f32)).resizable(false).exact_width(MODIFIER_PANEL_WIDTH).show_inside(ui, |ui| {
-				egui::TopBottomPanel::bottom("keyframe_panel").exact_height(KEYFRAME_PANEL_HEIGHT).show_inside(ui, |ui| self.current_keyframe(ui));
+				egui::TopBottomPanel::bottom("keyframe_panel").exact_height(KEYFRAME_PANEL_HEIGHT).show_inside(ui, |ui| self.current_keyframe(ui, ctx));
 				egui::CentralPanel::default().show_inside(ui, |ui| {
 					egui::ScrollArea::vertical().show(ui, |ui| {
 						self.curve_list(ui, ctx);

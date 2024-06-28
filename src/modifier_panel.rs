@@ -1,8 +1,9 @@
 use std::fs;
 use std::mem::swap;
+use std::str::FromStr;
 use std::time::Instant;
 use egui::{Align, Id, Layout, Ui};
-use fso_tables_impl::curves::{Curve, CurveKeyframe, CurveSegment, CurveTable};
+use fso_tables_impl::curves::{BUILTIN_CURVES, Curve, CurveKeyframe, CurveSegment, CurveTable};
 use native_dialog::{MessageDialog, MessageType};
 use crate::{CurvEdit, TableData};
 use crate::note_bar::{Note, NoteSeverity};
@@ -64,6 +65,11 @@ impl CurvEdit {
 			if let Some(to_remove) = remove_curve {
 				table.curves.remove(to_remove);
 				curves = curves.iter().filter(|(table, curve)| *table != table_num || *curve != to_remove).map(|(table, curve)| (*table, if *table == table_num && *curve > to_remove { *curve - 1 } else { *curve })).collect();
+				if let Some((table, curve, _)) = self.selected_keyframe {
+					if table == table_num && curve == to_remove {
+						self.selected_keyframe = None;
+					}
+				}
 			}
 			if let Some((first, second)) = switch_curves {
 				let (front, back) = table.curves.split_at_mut(second);
@@ -92,6 +98,9 @@ impl CurvEdit {
 		}
 
 		for (table_num, curve_num, mut new_name) in rename_curves {
+			if self.tables[table_num].0.curves[curve_num].name == new_name {
+				continue;
+			}
 			if self.tables.iter().find(|(table, _)| table.curves.iter().find(|curve| curve.name == new_name).is_some()).is_some() {
 				self.notes.push((Note {
 					text: format!("Cannot rename {} to {}: Curve with this name already exists!", self.tables[table_num].0.curves[curve_num].name, new_name),
@@ -125,6 +134,11 @@ impl CurvEdit {
 		if let Some(to_remove) = remove_table {
 			self.tables.remove(to_remove);
 			curves = curves.iter().filter(|(table, _)| *table != to_remove).map(|(table, curve)| (if *table > to_remove { *table - 1 } else { *table }, *curve)).collect();
+			if let Some((table, _, _)) = self.selected_keyframe {
+				if table == to_remove {
+					self.selected_keyframe = None;
+				}
+			}
 		}
 		
 		if let Some((table, name)) = add_curve {
@@ -149,8 +163,142 @@ impl CurvEdit {
 		self.curves_to_show = curves;
 	}
 
-	pub(crate) fn current_keyframe(&mut self, _ui: &mut Ui) {
-		//TODO
+	pub(crate) fn current_keyframe(&mut self, ui: &mut Ui, ctx: &egui::Context) {
+		let id_x = Id::new("kf_data_x");
+		let id_y = Id::new("kf_data_y");
+		let id_deg = Id::new("kf_data_degree");
+		let was_editing_x = ctx.memory(|mem| mem.data.get_temp::<String>(id_x));
+		let was_editing_y = ctx.memory(|mem| mem.data.get_temp::<String>(id_y));
+		let was_editing_deg = ctx.memory(|mem| mem.data.get_temp::<String>(id_deg));
+		
+		if let Some((table, curve, keyframe)) = self.selected_keyframe {
+			let list_of_curves = self.tables.iter().flat_map(|(table, _)| table.curves.iter().map(|curve| curve.name.clone()))
+				.chain(BUILTIN_CURVES.iter().map(|curve| curve.name.clone())).collect::<Vec<String>>();
+			
+			let (table, file_data) = &mut self.tables[table];
+			let curve = &mut table.curves[curve];
+			let keyframe = &mut curve.keyframes[keyframe];
+			ui.horizontal(|ui| {
+				ui.label("X: ");
+
+				let was_typing = was_editing_x.is_some();
+				let pos_orig = format!("{}", keyframe.pos.0);
+				let mut pos = was_editing_x.unwrap_or(pos_orig.clone());
+
+				if ui.text_edit_singleline(&mut pos).lost_focus() {
+					if let Ok(pos) = f32::from_str(pos.as_str()) {
+						file_data.dirty = true;
+						keyframe.pos.0 = pos;
+					}
+					ctx.memory_mut(|mem| mem.data.remove_temp::<String>(id_x));
+				} else if pos != pos_orig {
+					ctx.memory_mut(|mem| mem.data.insert_temp::<String>(id_x, pos));
+				} else if was_typing {
+					ctx.memory_mut(|mem| mem.data.remove_temp::<String>(id_x));
+				}
+			});
+			ui.horizontal(|ui| {
+				ui.label("Y: ");
+
+				let was_typing = was_editing_y.is_some();
+				let pos_orig = format!("{}", keyframe.pos.1);
+				let mut pos = was_editing_y.unwrap_or(pos_orig.clone());
+
+				if ui.text_edit_singleline(&mut pos).lost_focus() {
+					if let Ok(pos) = f32::from_str(pos.as_str()) {
+						file_data.dirty = true;
+						keyframe.pos.1 = pos;
+					}
+					ctx.memory_mut(|mem| mem.data.remove_temp::<String>(id_y));
+				} else if pos != pos_orig {
+					ctx.memory_mut(|mem| mem.data.insert_temp::<String>(id_y, pos));
+				} else if was_typing {
+					ctx.memory_mut(|mem| mem.data.remove_temp::<String>(id_y));
+				}
+			});
+			ui.horizontal(|ui| {
+				ui.label("Interpolation type: ");
+				if egui::ComboBox::from_id_source("interptype")
+					.selected_text(
+						match &keyframe.segment {
+							CurveSegment::Constant => { "Constant" }
+							CurveSegment::Linear => { "Linear" }
+							CurveSegment::Polynomial { .. } => { "Polynomial" }
+							CurveSegment::Circular { .. } => { "Circular" }
+							CurveSegment::Subcurve { .. } => { "Subcurve" }
+						})
+					.show_ui(ui, |ui| {
+						ui.selectable_value(&mut keyframe.segment, CurveSegment::Constant, "Constant");
+						ui.selectable_value(&mut keyframe.segment, CurveSegment::Linear, "Linear");
+						ui.selectable_value(&mut keyframe.segment, CurveSegment::Polynomial { degree: 2f32, ease_in: None }, "Polynomial");
+						ui.selectable_value(&mut keyframe.segment, CurveSegment::Circular { ease_in: None }, "Circular");
+						if let Some(first) = list_of_curves.iter().find(|string| **string != curve.name) {
+							ui.selectable_value(&mut keyframe.segment, CurveSegment::Subcurve { curve: first.clone() }, "Subcurve");
+						} 
+					}).response.clicked() {
+						file_data.dirty = true;
+				}
+			});
+
+			match &mut keyframe.segment {
+				CurveSegment::Polynomial { degree, ease_in } => {
+					ui.horizontal(|ui| {
+						ui.label("Degree: ");
+
+						let was_typing = was_editing_deg.is_some();
+						let deg_orig = format!("{}", degree);
+						let mut deg = was_editing_deg.unwrap_or(deg_orig.clone());
+
+						if ui.text_edit_singleline(&mut deg).lost_focus() {
+							if let Ok(deg) = f32::from_str(deg.as_str()) {
+								if deg > 0f32 {
+									file_data.dirty = true;
+									*degree = deg;
+								}
+							}
+							ctx.memory_mut(|mem| mem.data.remove_temp::<String>(id_deg));
+						} else if deg != deg_orig {
+							ctx.memory_mut(|mem| mem.data.insert_temp::<String>(id_deg, deg));
+						} else if was_typing {
+							ctx.memory_mut(|mem| mem.data.remove_temp::<String>(id_deg));
+						}
+					});
+					
+					if ui.checkbox(ease_in.get_or_insert(true), "Ease In: ").changed() {
+						file_data.dirty = true;
+					}
+				}
+				CurveSegment::Circular { ease_in } => {
+					if ui.checkbox(ease_in.get_or_insert(true), "Ease In: ").changed() {
+						file_data.dirty = true;
+					}
+					ctx.memory_mut(|mem| mem.data.remove_temp::<String>(id_deg));
+				}
+				CurveSegment::Subcurve { curve: subcurve } => {
+					ui.horizontal(|ui| {
+						ui.label("Source curve: ");
+						if egui::ComboBox::from_id_source("interptype_subcurve_curve")
+							.selected_text(subcurve.as_str())
+							.show_ui(ui, |ui| {
+								for other_curve in list_of_curves.iter().filter(|string| **string != curve.name) {
+									ui.selectable_value(subcurve, other_curve.clone(), other_curve);
+								}
+							}).response.clicked() {
+							file_data.dirty = true;
+						}
+					});
+					ctx.memory_mut(|mem| mem.data.remove_temp::<String>(id_deg));
+				}
+				_ => {
+					ctx.memory_mut(|mem| mem.data.remove_temp::<String>(id_deg));
+				}
+			}
+		}
+		else {
+			ctx.memory_mut(|mem| mem.data.remove_temp::<String>(id_x));
+			ctx.memory_mut(|mem| mem.data.remove_temp::<String>(id_y));
+			ctx.memory_mut(|mem| mem.data.remove_temp::<String>(id_deg));
+		}
 	}
 }
 

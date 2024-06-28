@@ -33,7 +33,7 @@ pub(crate) fn get_available_curves(tables: &Vec<(CurveTable, TableData)>) -> Vec
 	available_curves
 }
 
-pub(crate) fn plot_curve (plot_ui: &mut PlotUi, ctx: &egui::Context, input: &CurvEditInput, tables: &mut Vec<(CurveTable, TableData)>, curve_number: &(usize, usize), is_dragging: &mut bool) {
+pub(crate) fn plot_curve (plot_ui: &mut PlotUi, ctx: &egui::Context, input: &CurvEditInput, tables: &mut Vec<(CurveTable, TableData)>, curve_number: &(usize, usize), is_dragging: &mut bool, selected_keyframe: &mut Option<(usize, usize, usize)>) {
 	let available_curves = get_available_curves(tables);
 	
 	let curve = &tables[curve_number.0].0.curves[curve_number.1];
@@ -78,6 +78,8 @@ pub(crate) fn plot_curve (plot_ui: &mut PlotUi, ctx: &egui::Context, input: &Cur
 			};
 
 			if let Some(new_drag) = new_drag {
+				*selected_keyframe = Some((curve_number.0, curve_number.1, new_drag.0));
+
 				*is_dragging = true;
 				ctx.memory_mut(|mem| mem.data.insert_temp::<DraggingPntTuple>(id_dragging, new_drag));
 			}
