@@ -16,6 +16,7 @@ impl CurvEdit {
 				if ui.button("Open Table").clicked() {
 					let path = FileDialog::new()
 						.set_location(self.tables.last().map_or(&self.default_path, |table| &table.1.file))
+						.set_filename("curves.tbl")
 						.add_filter("FSO Table", &["tbl", "tbm"])
 						.show_open_single_file();
 					if let Ok(Some(path)) = path {
@@ -35,6 +36,36 @@ impl CurvEdit {
 										self.try_open_file(file.path());
 									}
 								}							
+							}
+						}
+					}
+				}
+				if ui.button("New Table").clicked() {
+					let path = FileDialog::new()
+						.set_location(self.tables.last().map_or(&self.default_path, |table| &table.1.file))
+						.set_filename("-crv.tbm")
+						.add_filter("FSO Table", &["tbl", "tbm"])
+						.show_save_single_file();
+					if let Ok(Some(mut path)) = path {
+						let filename = path.file_name().unwrap_or("curves.tbl".as_ref()).to_string_lossy().to_ascii_lowercase();
+						if filename != "curves.tbl" && !filename.ends_with("-crv.tbm") {
+							path.set_file_name(path.file_name().map(|filename| {
+								let mut fname = filename.to_os_string();
+								fname.push("-crv.tbm");
+								fname
+							}).unwrap());
+						}
+						
+						match fs::write(&path, "") {
+							Ok(_) => {
+								self.tables.push((CurveTable::new(vec![]), TableData { file: path, dirty: true }));
+							}
+							Err(error) => {
+								self.notes.push((Note {
+									text: format!("Cannot save table {}: {}!", path.to_string_lossy(), error),
+									severity: NoteSeverity::Error,
+									timeout: 5f32
+								}, None));
 							}
 						}
 					}
