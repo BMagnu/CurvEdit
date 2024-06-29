@@ -38,8 +38,6 @@ impl CurvEdit {
 
 		ui.add_space(3f32);
 		if let Some((idx, (note, timestamp))) = to_show {
-			//TODO properly show severity
-
 			let timestamp: &_ = timestamp.get_or_insert(Instant::now());
 			egui::Frame::none()
 				.fill(
@@ -64,6 +62,7 @@ impl CurvEdit {
 						ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
 							ui.horizontal(|ui| {
 								ui.add_space(4f32);
+								//TODO Symbols instead of letters here
 								ui.label(format!("E: {num_err}, W: {num_warn}, I: {num_info}"));
 							});
 						});

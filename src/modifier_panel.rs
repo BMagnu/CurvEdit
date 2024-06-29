@@ -1,8 +1,9 @@
 use std::fs;
 use std::mem::swap;
 use std::str::FromStr;
+use std::sync::Arc;
 use std::time::Instant;
-use egui::{Align, Id, Layout, Ui};
+use egui::{Align, Id, Layout, Style, Ui};
 use fso_tables_impl::curves::{BUILTIN_CURVES, Curve, CurveKeyframe, CurveSegment, CurveTable};
 use native_dialog::{MessageDialog, MessageType};
 use crate::{CurvEdit, TableData};
@@ -23,7 +24,7 @@ impl CurvEdit {
 		for (table_num, (table, file_data)) in self.tables.iter_mut().enumerate() {
 			ui.horizontal(|ui| {
 				ui.set_height(CURVE_LABEL_HEIGHT);
-				if table_entry(ui, table, file_data, &mut self.notes) {
+				if table_entry(ui, table, file_data, &mut self.notes, &self.noto_symbols_buttons) {
 					remove_table = Some(table_num);
 				}
 			});
@@ -34,7 +35,7 @@ impl CurvEdit {
 				let is_clicked = self.curves_to_show.contains(&(table_num, curve_num));
 				ui.horizontal(|ui| {
 					ui.set_height(CURVE_LABEL_HEIGHT);
-					let (display, remove, up, down, new_name) = curve_entry(ui, curve, ctx, is_clicked, curve_num < table.curves.len() - 1, curve_num > 0);
+					let (display, remove, up, down, new_name) = curve_entry(ui, curve, ctx, is_clicked, curve_num < table.curves.len() - 1, curve_num > 0, &self.noto_symbols_buttons);
 					let mut curve_num_to_display = switch_curves.map_or(curve_num, |(switch, other)| if other == curve_num { switch } else { curve_num });
 
 					if remove {
@@ -303,64 +304,71 @@ impl CurvEdit {
 	}
 }
 
-fn table_entry(ui: &mut Ui, table: &CurveTable, file_data: &mut TableData, notes: &mut Vec<(Note, Option<Instant>)>) -> bool {
+fn table_entry(ui: &mut Ui, table: &CurveTable, file_data: &mut TableData, notes: &mut Vec<(Note, Option<Instant>)>, button_style: &Arc<Style>) -> bool {
 	let filename = file_data.file.file_name().map_or("".to_string(), |filename| filename.to_string_lossy().to_string());
 	ui.label(&filename);
 
 	ui.with_layout(Layout::right_to_left(Align::Center), |ui| -> bool {
-		let close = if ui.button("X").clicked() {
-			if file_data.dirty {
-				MessageDialog::new()
-					.set_title("Close table?")
-					.set_type(MessageType::Warning)
-					.set_text(&format!("The table {} has unsaved changes. Are you sure you want to close the table and discard the changes?", filename))
-					.show_confirm()
-					.unwrap_or(false)
-			}
-			else {
-				true
-			}
-		} else {
-			false
-		};
-		if ui.button("S").clicked() {
-			let table_content = table.spew();
+		ui.scope(|ui| {
+			ui.set_style(button_style.clone());
+			let close = if ui.button("⮾").on_hover_text("Close table file.").clicked() {
+				if file_data.dirty {
+					MessageDialog::new()
+						.set_title("Close table?")
+						.set_type(MessageType::Warning)
+						.set_text(&format!("The table {} has unsaved changes. Are you sure you want to close the table and discard the changes?", filename))
+						.show_confirm()
+						.unwrap_or(false)
+				} else {
+					true
+				}
+			} else {
+				false
+			};
+			if ui.button("🖫").on_hover_text("Save table file.").clicked() {
+				let table_content = table.spew();
 
-			match fs::write(&file_data.file, table_content) {
-				Ok(_) => {
-					file_data.dirty = false;
-				}
-				Err(error) => {
-					notes.push((Note {
-						text: format!("Cannot save table {}: {}!", filename, error),
-						severity: NoteSeverity::Error,
-						timeout: 5f32
-					}, None));
+				match fs::write(&file_data.file, table_content) {
+					Ok(_) => {
+						file_data.dirty = false;
+					}
+					Err(error) => {
+						notes.push((Note {
+							text: format!("Cannot save table {}: {}!", filename, error),
+							severity: NoteSeverity::Error,
+							timeout: 5f32
+						}, None));
+					}
 				}
 			}
-		}
-		close
+			close
+		}).inner
 	}).inner
 }
 
-fn curve_entry(ui: &mut Ui, curve: &Curve, ctx: &egui::Context, mut is_clicked: bool, can_go_down: bool, can_go_up: bool) -> (bool, bool, bool, bool, Option<String>) {
+fn curve_entry(ui: &mut Ui, curve: &Curve, ctx: &egui::Context, mut is_clicked: bool, can_go_down: bool, can_go_up: bool, button_style: &Arc<Style>) -> (bool, bool, bool, bool, Option<String>) {
 	//(display, remove, up, down)
 	ui.add_space(20f32);
 
 	ui.with_layout(Layout::right_to_left(Align::Center), |ui| -> (bool, bool, bool, bool, Option<String>) {
-		let remove = if ui.button("X").clicked() {
-			MessageDialog::new()
-				.set_title("Delete curve?")
-				.set_type(MessageType::Warning)
-				.set_text(&format!("Are you sure you want to delete the curve {}?", curve.name))
-				.show_confirm()
-				.unwrap_or(false)
-		} else {
-			false
-		};
-		let up = ui.add_enabled(can_go_up, egui::Button::new("U")).clicked();
-		let down = ui.add_enabled(can_go_down, egui::Button::new("D")).clicked();
-		ui.toggle_value(&mut is_clicked, "S");
+
+		let (remove, up, down) = ui.scope(|ui| {
+			ui.set_style(button_style.clone());
+			let remove = if ui.button("🗑").on_hover_text("Delete curve.").clicked() {
+				MessageDialog::new()
+					.set_title("Delete curve?")
+					.set_type(MessageType::Warning)
+					.set_text(&format!("Are you sure you want to delete the curve {}?", curve.name))
+					.show_confirm()
+					.unwrap_or(false)
+			} else {
+				false
+			};
+			let up = ui.add_enabled(can_go_up, egui::Button::new("🡑")).on_hover_text("Move curve up.").clicked();
+			let down = ui.add_enabled(can_go_down, egui::Button::new("🡓")).on_hover_text("Move curve down.").clicked();
+			ui.toggle_value(&mut is_clicked, "👁").on_hover_text("Show curve.");
+			(remove, up, down)
+		}).inner;
 
 		let id = Id::new(format!("name_{}", curve.name));
 		let was_editing = ctx.memory(|mem| mem.data.get_temp::<String>(id));

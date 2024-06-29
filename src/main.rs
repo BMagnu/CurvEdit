@@ -9,15 +9,20 @@ mod note_bar;
 use fso_tables_impl::curves::CurveTable;
 use std::error::Error;
 use std::path::PathBuf;
+use std::sync::Arc;
 use std::time::Instant;
 use eframe::egui;
-use egui::{Frame, Margin};
+use eframe::epaint::FontFamily;
+use egui::{FontData, FontDefinitions, FontId, FontTweak, Frame, Margin, Style, TextStyle};
 use homedir::get_my_home;
+use include_dir::{Dir, include_dir};
 use crate::curves_panel::SnapMode;
 use crate::modifier_panel::{KEYFRAME_PANEL_HEIGHT, MODIFIER_PANEL_WIDTH};
 use crate::note_bar::Note;
 
 const CURVEDIT_VERSION: &str = env!("CARGO_PKG_VERSION");
+static ASSET_DIR: Dir = include_dir!("src/assets");
+
 fn main() -> Result<(), Box<dyn Error>> {
 	let mut args = std::env::args();
 	args.next();
@@ -35,9 +40,28 @@ fn main() -> Result<(), Box<dyn Error>> {
 	Ok(eframe::run_native(
 		format!("CurvEdit {}", CURVEDIT_VERSION).as_str(),
 		options,
-		Box::new(move |_| Box::new({
+		Box::new(move |ctx| Box::new({
 			let mut curvedit = CurvEdit::default();
 			curvedit.default_path = path;
+
+			let mut fonts = FontDefinitions::default();
+			fonts.font_data.insert(
+				"NotoSymbols2".to_string(),
+				FontData::from_static(ASSET_DIR.get_file("NotoSansSymbols2-Regular.ttf").unwrap().contents())
+					.tweak(FontTweak {
+						scale: 1.3,
+						y_offset_factor: 0.05,
+						y_offset: 0.0,
+						baseline_offset_factor: 0.0,
+					}),
+			);
+			fonts.families.insert(FontFamily::Name("NotoSymbols2".into()), vec!["NotoSymbols2".to_string()]);
+			ctx.egui_ctx.set_fonts(fonts);
+			
+			let mut style = (*ctx.egui_ctx.style()).clone();
+			style.text_styles.insert(TextStyle::Button, FontId::new(11f32, FontFamily::Name("NotoSymbols2".into())));
+			curvedit.noto_symbols_buttons = Arc::new(style);
+			
 			curvedit
 		})),
 	)?)
@@ -56,15 +80,16 @@ struct CurvEdit {
 	notes: Vec<(Note, Option<Instant>)>,
 	selected_keyframe: Option<(usize, usize, usize)>,
 	snap_mode: SnapMode,
-	default_path: PathBuf
+	default_path: PathBuf,
+	noto_symbols_buttons: Arc<Style>
 }
 struct CurvEditInput {
 	pointer_down: bool,
 	right_clicked: bool,
 	ctrl_held: bool
 }
+
 impl eframe::App for CurvEdit {
-	
 	fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
 		egui::TopBottomPanel::top("context_bar").show(ctx, |ui| self.context_bar(ui));
 		egui::TopBottomPanel::bottom("note_bar").show(ctx, |ui| self.note_bar(ui, ctx));
