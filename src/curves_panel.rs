@@ -4,7 +4,7 @@ use egui::CursorIcon::{Grabbing, PointingHand};
 use crate::{CurvEdit, CurvEditInput};
 use crate::plot_panel::plot_curve;
 
-pub(crate) const CURVE_RENDER_ACCURACY: usize = 500;
+pub(crate) const CURVE_RENDER_ACCURACY: usize = 1500;
 
 #[derive(Default, PartialEq)]
 pub(crate) enum SnapMode {
