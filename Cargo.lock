@@ -852,7 +852,7 @@ checksum = "96a6ac251f4a2aca6b3f91340350eab87ae57c3f127ffeb585e92bd336717991"
 
 [[package]]
 name = "curvedit"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "eframe",
  "egui",
@@ -1246,7 +1246,8 @@ dependencies = [
 
 [[package]]
 name = "fso_tables"
-version = "0.1.0"
+version = "1.0.0"
+source = "git+https://github.com/BMagnu/fso-tables-rust?tag=v1.0.0#6882e954e2c135339d8a155536f2b14303263813"
 dependencies = [
  "fso_tables_macro",
  "regex",
@@ -1254,7 +1255,8 @@ dependencies = [
 
 [[package]]
 name = "fso_tables_impl"
-version = "0.1.0"
+version = "1.0.0"
+source = "git+https://github.com/BMagnu/fso-tables-rust?tag=v1.0.0#6882e954e2c135339d8a155536f2b14303263813"
 dependencies = [
  "fso_tables",
  "once_cell",
@@ -1264,7 +1266,8 @@ dependencies = [
 
 [[package]]
 name = "fso_tables_macro"
-version = "0.1.0"
+version = "1.0.0"
+source = "git+https://github.com/BMagnu/fso-tables-rust?tag=v1.0.0#6882e954e2c135339d8a155536f2b14303263813"
 dependencies = [
  "proc-macro2",
  "quote",

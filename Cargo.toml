@@ -1,10 +1,10 @@
 [package]
 name = "curvedit"
-version = "0.1.0"
+version = "1.0.0"
 edition = "2021"
 
 [dependencies]
-fso_tables_impl = { path = "../fso-tables-rust/fso_tables_impl" }
+fso_tables_impl = { git = "https://github.com/BMagnu/fso-tables-rust", tag = "v1.0.0" }
 egui = "0.27.2"
 eframe = "0.27.2"
 egui_plot = "0.27.2"
