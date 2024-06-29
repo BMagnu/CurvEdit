@@ -52,7 +52,7 @@ impl CurvEdit {
 					.allow_scroll(false)
 					.allow_boxed_zoom(false)
 					.link_cursor(cursor_group, true, false)
-					.show(ui, |plot_ui| plot_curve(plot_ui, ctx, &input, &mut self.tables, curve, &mut is_dragging, &mut self.selected_keyframe))
+					.show(ui, |plot_ui| plot_curve(plot_ui, ctx, &input, &mut self.tables, curve, &self.snap_mode, &mut is_dragging, &mut self.selected_keyframe))
 			});
 		}
 

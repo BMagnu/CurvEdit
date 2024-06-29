@@ -4,7 +4,7 @@ use egui::Id;
 use egui_plot::{Line, MarkerShape, PlotPoints, PlotUi, Points};
 use fso_tables_impl::curves::{BUILTIN_CURVES, Curve, CurveTable};
 use crate::{CurvEditInput, TableData};
-use crate::curves_panel::CURVE_RENDER_ACCURACY;
+use crate::curves_panel::{CURVE_RENDER_ACCURACY, SnapMode};
 
 pub(crate) const KEYFRAME_MIN_X_DISTANCE: f32 = 0.001;
 
@@ -33,13 +33,11 @@ pub(crate) fn get_available_curves(tables: &Vec<(CurveTable, TableData)>) -> Vec
 	available_curves
 }
 
-pub(crate) fn plot_curve (plot_ui: &mut PlotUi, ctx: &egui::Context, input: &CurvEditInput, tables: &mut Vec<(CurveTable, TableData)>, curve_number: &(usize, usize), is_dragging: &mut bool, selected_keyframe: &mut Option<(usize, usize, usize)>) {
+pub(crate) fn plot_curve (plot_ui: &mut PlotUi, ctx: &egui::Context, input: &CurvEditInput, tables: &mut Vec<(CurveTable, TableData)>, curve_number: &(usize, usize), drag_mode: &SnapMode, is_dragging: &mut bool, selected_keyframe: &mut Option<(usize, usize, usize)>) {
 	let available_curves = get_available_curves(tables);
 	
 	let curve = &tables[curve_number.0].0.curves[curve_number.1];
 	let curve_points = from_curve( curve, &available_curves, CURVE_RENDER_ACCURACY);
-
-	drop(available_curves);
 
 	plot_ui.line(Line::new(curve_points).name(&curve.name));
 
@@ -58,9 +56,9 @@ pub(crate) fn plot_curve (plot_ui: &mut PlotUi, ctx: &egui::Context, input: &Cur
 	type DraggingPntTuple = (usize, Vec2);
 	let id_dragging = Id::new(format!("Dragging{}", curve.name));
 	let was_dragging = ctx.memory(|mem| mem.data.get_temp::<DraggingPntTuple>(id_dragging));
-
-	let curve = &mut tables[curve_number.0].0.curves[curve_number.1];
-
+	
+	let mut new_pos: Option<(usize, f32, f32)> = None;
+	
 	if let Some(mouse_coords) = plot_ui.pointer_coordinate() {
 		let mouse_coords: Vec2 = mouse_coords.to_vec2();
 		if plot_ui.response().hovered() && input.pointer_down {
@@ -88,12 +86,46 @@ pub(crate) fn plot_curve (plot_ui: &mut PlotUi, ctx: &egui::Context, input: &Cur
 			let lower_bound = if pnt <= 0 { -f32::INFINITY } else { curve.keyframes[pnt - 1].pos.0 + KEYFRAME_MIN_X_DISTANCE };
 			let upper_bound = if pnt >= curve.keyframes.len() - 1 { f32::INFINITY } else { curve.keyframes[pnt + 1].pos.0 - KEYFRAME_MIN_X_DISTANCE };
 
-			let kf = &mut curve.keyframes[pnt];
-			kf.pos.0 = (kf.pos.0 + dragged.x).clamp(lower_bound, upper_bound);
-			kf.pos.1 += dragged.y;
-
-			tables[curve_number.0].1.dirty = true;
+			let kf = &curve.keyframes[pnt];
+			
+			match drag_mode {
+				SnapMode::NoSnap => {
+					new_pos = Some((pnt,
+						(kf.pos.0 + dragged.x).clamp(lower_bound, upper_bound),
+						kf.pos.1 + dragged.y)
+					);
+				}
+				SnapMode::SnapX => {
+					new_pos = Some((pnt,
+						(kf.pos.0 + dragged.x).clamp(lower_bound, upper_bound),
+						kf.pos.1)
+					);
+				}
+				SnapMode::SnapY => {
+					new_pos = Some((pnt,
+						kf.pos.0,
+						kf.pos.1 + dragged.y)
+					);
+				}
+				SnapMode::SnapCurve => {
+					let new_x = (kf.pos.0 + dragged.x).clamp(lower_bound, upper_bound);
+					let new_y = curve.calculate(new_x, &available_curves);
+					new_pos = Some((pnt,
+						new_x,
+						new_y)
+					);
+				}
+			}
+			
 			ctx.memory_mut(|mem| mem.data.remove_temp::<DraggingPntTuple>(id_dragging));
 		}
+	}
+	
+	drop(available_curves);
+	let table = &mut tables[curve_number.0];
+	let curve = &mut table.0.curves[curve_number.1];
+	if let Some((pnt, x, y)) = new_pos {
+		table.1.dirty = true;
+		curve.keyframes[pnt].pos = (x, y);
 	}
 }
