@@ -70,7 +70,6 @@ impl CurvEdit {
 						}
 					}
 				}
-				//TODO new table
 			});
 		});
 		ui.add_space(1f32);
