@@ -86,7 +86,8 @@ struct CurvEdit {
 struct CurvEditInput {
 	pointer_down: bool,
 	right_clicked: bool,
-	ctrl_held: bool
+	ctrl_held: bool,
+	escape_pressed: bool
 }
 
 impl eframe::App for CurvEdit {

@@ -1,5 +1,5 @@
 use eframe::emath::{Align, Vec2};
-use egui::{Context, Id, Layout, Ui, Widget};
+use egui::{Context, Id, Key, Layout, Ui, Widget};
 use egui::CursorIcon::Grabbing;
 use crate::{CurvEdit, CurvEditInput};
 use crate::plot_panel::plot_curve;
@@ -47,7 +47,8 @@ impl CurvEdit {
 		let input = ui.input(|i| { CurvEditInput { 
 			pointer_down: i.pointer.primary_down(),
 			right_clicked: i.pointer.secondary_pressed(),
-			ctrl_held: i.modifiers.ctrl
+			ctrl_held: i.modifiers.ctrl,
+			escape_pressed: i.key_pressed(Key::Escape)
 		} });
 		let cursor_group = Id::new("CursorGroup");
 		let height = ui.available_height() / (self.curves_to_show.len() as f32) - 3f32;

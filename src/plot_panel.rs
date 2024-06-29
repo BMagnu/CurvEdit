@@ -1,7 +1,7 @@
 use eframe::emath::Vec2;
 use eframe::epaint::Color32;
 use egui::Id;
-use egui_plot::{Line, MarkerShape, PlotPoints, PlotUi, Points};
+use egui_plot::{Line, MarkerShape, PlotItem, PlotPoints, PlotUi, Points};
 use fso_tables_impl::curves::{BUILTIN_CURVES, Curve, CurveKeyframe, CurveSegment, CurveTable};
 use crate::{CurvEditInput, TableData};
 use crate::curves_panel::{CURVE_RENDER_ACCURACY, SnapMode};
@@ -59,7 +59,11 @@ pub(crate) fn plot_curve (plot_ui: &mut PlotUi, ctx: &egui::Context, input: &Cur
 	
 	if let Some(mouse_coords) = plot_ui.pointer_coordinate() {
 		let mouse_coords: Vec2 = mouse_coords.to_vec2();
-		if plot_ui.response().hovered() && input.pointer_down {
+		
+		if input.escape_pressed {
+			ctx.memory_mut(|mem| mem.data.remove_temp::<DraggingPntTuple>(id_dragging));
+		}
+		else if plot_ui.response().hovered() && input.pointer_down {
 			let pointer_translate = plot_ui.pointer_coordinate_drag_delta();
 
 			let new_drag: Option<DraggingPntTuple> = if let Some((pnt, dragged)) = was_dragging {
@@ -75,45 +79,20 @@ pub(crate) fn plot_curve (plot_ui: &mut PlotUi, ctx: &egui::Context, input: &Cur
 
 			if let Some(new_drag) = new_drag {
 				*selected_keyframe = Some((curve_number.0, curve_number.1, new_drag.0));
-
+				
+				let new_pos = calculate_new_keyframe_pos(new_drag.0, curve, &new_drag.1, &available_curves, drag_mode);
+				let mut curve_preview = curve.clone();
+				curve_preview.keyframes[new_drag.0].pos = new_pos;
+				
 				*is_dragging = true;
 				ctx.memory_mut(|mem| mem.data.insert_temp::<DraggingPntTuple>(id_dragging, new_drag));
+
+				let curve_points_preview = from_curve( &curve_preview, &available_curves, CURVE_RENDER_ACCURACY);
+				plot_ui.line(Line::new(curve_points_preview).color(Color32::from_rgb(237, 165, 159)).name(format!("Preview: {}", &curve.name)));
 			}
 		}
 		else if let Some((pnt, dragged)) = was_dragging {
-			let lower_bound = if pnt <= 0 { -f32::INFINITY } else { curve.keyframes[pnt - 1].pos.0 + KEYFRAME_MIN_X_DISTANCE };
-			let upper_bound = if pnt >= curve.keyframes.len() - 1 { f32::INFINITY } else { curve.keyframes[pnt + 1].pos.0 - KEYFRAME_MIN_X_DISTANCE };
-
-			let kf = &curve.keyframes[pnt];
-			
-			let new_pos = match drag_mode {
-				SnapMode::NoSnap => {
-					(
-						(kf.pos.0 + dragged.x).clamp(lower_bound, upper_bound),
-						kf.pos.1 + dragged.y
-					)
-				}
-				SnapMode::SnapX => {
-					(
-						(kf.pos.0 + dragged.x).clamp(lower_bound, upper_bound),
-						kf.pos.1
-					)
-				}
-				SnapMode::SnapY => {
-					(
-						kf.pos.0,
-						kf.pos.1 + dragged.y
-					)
-				}
-				SnapMode::SnapCurve => {
-					let new_x = (kf.pos.0 + dragged.x).clamp(lower_bound, upper_bound);
-					let new_y = curve.calculate(new_x, &available_curves);
-					(
-						new_x,
-						new_y
-					)
-				}
-			};
+			let new_pos = calculate_new_keyframe_pos(pnt, curve, &dragged, &available_curves, drag_mode);
 			
 			ctx.memory_mut(|mem| mem.data.remove_temp::<DraggingPntTuple>(id_dragging));
 
@@ -170,6 +149,42 @@ pub(crate) fn plot_curve (plot_ui: &mut PlotUi, ctx: &egui::Context, input: &Cur
 					curve.keyframes.push(CurveKeyframe::new(new_pos, CurveSegment::Constant));
 				}
 			}
+		}
+	}
+}
+
+fn calculate_new_keyframe_pos(pnt: usize, curve: &Curve, dragged: &Vec2, available_curves: &Vec<&Curve>, drag_mode: &SnapMode) -> (f32, f32) {
+	let lower_bound = if pnt <= 0 { -f32::INFINITY } else { curve.keyframes[pnt - 1].pos.0 + KEYFRAME_MIN_X_DISTANCE };
+	let upper_bound = if pnt >= curve.keyframes.len() - 1 { f32::INFINITY } else { curve.keyframes[pnt + 1].pos.0 - KEYFRAME_MIN_X_DISTANCE };
+
+	let kf = &curve.keyframes[pnt];
+
+	match drag_mode {
+		SnapMode::NoSnap => {
+			(
+				(kf.pos.0 + dragged.x).clamp(lower_bound, upper_bound),
+				kf.pos.1 + dragged.y
+			)
+		}
+		SnapMode::SnapX => {
+			(
+				(kf.pos.0 + dragged.x).clamp(lower_bound, upper_bound),
+				kf.pos.1
+			)
+		}
+		SnapMode::SnapY => {
+			(
+				kf.pos.0,
+				kf.pos.1 + dragged.y
+			)
+		}
+		SnapMode::SnapCurve => {
+			let new_x = (kf.pos.0 + dragged.x).clamp(lower_bound, upper_bound);
+			let new_y = curve.calculate(new_x, &available_curves);
+			(
+				new_x,
+				new_y
+			)
 		}
 	}
 }
