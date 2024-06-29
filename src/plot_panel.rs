@@ -102,7 +102,11 @@ pub(crate) fn plot_curve (plot_ui: &mut PlotUi, ctx: &egui::Context, input: &Cur
 			table.1.dirty = true;
 			curve.keyframes[pnt].pos = new_pos;
 		}
-		else if input.right_clicked {
+		else if input.right_clicked 
+			&& mouse_coords.x > plot_ui.plot_bounds().min()[0] as f32
+			&& mouse_coords.y > plot_ui.plot_bounds().min()[1] as f32
+			&& mouse_coords.x < plot_ui.plot_bounds().max()[0] as f32
+			&& mouse_coords.y < plot_ui.plot_bounds().max()[1] as f32{
 			let point_clicked =  point_bounds.iter().enumerate().find(|(_, (bound_lower, bound_upper))| {
 				bound_lower.x < mouse_coords.x && bound_lower.y < mouse_coords.y && bound_upper.x > mouse_coords.x && bound_upper.y > mouse_coords.y
 			});
