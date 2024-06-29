@@ -92,6 +92,8 @@ struct CurvEditInput {
 
 impl eframe::App for CurvEdit {
 	fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+		//TODO v1.2 Undo-System
+		
 		egui::TopBottomPanel::top("context_bar").show(ctx, |ui| self.context_bar(ui));
 		egui::TopBottomPanel::bottom("note_bar").show(ctx, |ui| self.note_bar(ui, ctx));
 		egui::CentralPanel::default().frame(Frame::default().inner_margin(Margin {

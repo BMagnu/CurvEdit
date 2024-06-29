@@ -62,7 +62,7 @@ impl CurvEdit {
 						ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
 							ui.horizontal(|ui| {
 								ui.add_space(4f32);
-								//TODO v1.2 Symbols instead of letters here
+								//TODO v1.3 Symbols instead of letters here
 								ui.label(format!("E: {num_err}, W: {num_warn}, I: {num_info}"));
 							});
 						});
@@ -79,7 +79,12 @@ impl CurvEdit {
 		}
 		else {
 			ui.add_space(2f32);
-			ui.label("...");
+			ui.horizontal(|ui| {
+				ui.hyperlink_to("FreeSpace Open Curve Wiki", "https://wiki.hard-light.net/index.php/Curves.tbl");
+				ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+					ui.label("Hover for controls").on_hover_text("Left click to select or drag a keyframe\nRight click to add a keyframe (affected by snap mode)\nCtrl+Right click to delete a keyframe");
+				});
+			});
 			ui.add_space(2f32);
 		}
 		ui.add_space(3f32);

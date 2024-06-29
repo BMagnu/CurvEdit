@@ -17,7 +17,7 @@ pub(crate) enum SnapMode {
 
 impl CurvEdit {
 	pub(crate) fn mode_panel(&mut self, ui: &mut Ui) {
-		//TODO v1.1 Display Modes
+		//TODO v1.2 Display Modes
 		ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
 			let response_curve = ui.scope(|ui| {
 				ui.set_style(self.noto_symbols_buttons.clone());
@@ -29,7 +29,7 @@ impl CurvEdit {
 				self.snap_mode = SnapMode::SnapCurve;
 			}
 			
-			//TODO v1.1 Z
+			//TODO v1.2 Z
 			if egui::Button::new("Y").min_size(button_size.clone()).selected(self.snap_mode == SnapMode::SnapY).ui(ui).on_hover_text("Snap to the Y axis.").clicked() {
 				self.snap_mode = SnapMode::SnapY;
 			}
@@ -54,7 +54,7 @@ impl CurvEdit {
 		let height = ui.available_height() / (self.curves_to_show.len() as f32) - 3f32;
 		let mut is_dragging = false;
 
-		//TODO v1.1 different plot modes
+		//TODO v1.2 different plot modes
 		for curve in &self.curves_to_show {
 			ui.allocate_ui_with_layout(Vec2::new(ui.available_width(), height), Layout::top_down(Align::Center), |ui| {
 				let name = self.tables[curve.0].0.curves[curve.1].name.as_str();
