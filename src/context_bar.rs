@@ -10,6 +10,7 @@ use crate::plot_panel::get_available_curves;
 
 impl CurvEdit {
 	pub(crate) fn context_bar(&mut self, ui: &mut Ui) {
+		ui.add_space(2f32);
 		menu::bar(ui, |ui| {
 			ui.menu_button("File", |ui| {
 				if ui.button("Open Table").clicked() {
@@ -40,6 +41,7 @@ impl CurvEdit {
 				}
 			});
 		});
+		ui.add_space(1f32);
 	}
 	
 	fn try_open_file(&mut self, path: PathBuf) {

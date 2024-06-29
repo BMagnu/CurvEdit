@@ -172,6 +172,7 @@ impl CurvEdit {
 		let was_editing_deg = ctx.memory(|mem| mem.data.get_temp::<String>(id_deg));
 		
 		if let Some((table, curve, keyframe)) = self.selected_keyframe {
+			ui.add_space(6f32);
 			let list_of_curves = self.tables.iter().flat_map(|(table, _)| table.curves.iter().map(|curve| curve.name.clone()))
 				.chain(BUILTIN_CURVES.iter().map(|curve| curve.name.clone())).collect::<Vec<String>>();
 			

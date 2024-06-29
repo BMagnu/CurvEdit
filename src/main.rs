@@ -11,8 +11,9 @@ use std::error::Error;
 use std::path::PathBuf;
 use std::time::Instant;
 use eframe::egui;
-use egui::Frame;
+use egui::{Frame, Margin};
 use homedir::get_my_home;
+use crate::curves_panel::SnapMode;
 use crate::modifier_panel::{KEYFRAME_PANEL_HEIGHT, MODIFIER_PANEL_WIDTH};
 use crate::note_bar::Note;
 
@@ -54,6 +55,7 @@ struct CurvEdit {
 	curves_to_show: Vec<(usize, usize)>,
 	notes: Vec<(Note, Option<Instant>)>,
 	selected_keyframe: Option<(usize, usize, usize)>,
+	snap_mode: SnapMode,
 	default_path: PathBuf
 }
 struct CurvEditInput {
@@ -64,7 +66,12 @@ impl eframe::App for CurvEdit {
 	fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
 		egui::TopBottomPanel::top("context_bar").show(ctx, |ui| self.context_bar(ui));
 		egui::TopBottomPanel::bottom("note_bar").show(ctx, |ui| self.note_bar(ui, ctx));
-		egui::CentralPanel::default().frame(Frame::default().inner_margin(0f32)).show(ctx, |ui| {
+		egui::CentralPanel::default().frame(Frame::default().inner_margin(Margin {
+			left: 0.0,
+			right: 0.0,
+			top: 0.0,
+			bottom: 4.0,
+		})).show(ctx, |ui| {
 			egui::SidePanel::right("modifier_panel").frame(Frame::default().inner_margin(0f32)).resizable(false).exact_width(MODIFIER_PANEL_WIDTH).show_inside(ui, |ui| {
 				egui::TopBottomPanel::bottom("keyframe_panel").exact_height(KEYFRAME_PANEL_HEIGHT).show_inside(ui, |ui| self.current_keyframe(ui, ctx));
 				egui::CentralPanel::default().show_inside(ui, |ui| {
@@ -74,7 +81,13 @@ impl eframe::App for CurvEdit {
 				});
 			});
 			egui::CentralPanel::default().frame(Frame::default().inner_margin(0f32)).show_inside(ui, |ui| {
-				egui::TopBottomPanel::top("mode_panel").show_inside(ui, |ui| self.mode_panel(ui));
+				egui::TopBottomPanel::top("mode_panel").show_inside(ui, |ui| {
+					ui.vertical(|ui| {
+						ui.add_space(2f32);
+						ui.horizontal(|ui| self.mode_panel(ui));
+						ui.add_space(2f32);
+					});
+				});
 				egui::CentralPanel::default().show_inside(ui, |ui| self.curve_panel(ui, ctx));
 			});
 		});
