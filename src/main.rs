@@ -12,11 +12,19 @@ use std::path::PathBuf;
 use std::time::Instant;
 use eframe::egui;
 use egui::Frame;
+use homedir::get_my_home;
 use crate::modifier_panel::{KEYFRAME_PANEL_HEIGHT, MODIFIER_PANEL_WIDTH};
 use crate::note_bar::Note;
 
 const CURVEDIT_VERSION: &str = env!("CARGO_PKG_VERSION");
 fn main() -> Result<(), Box<dyn Error>> {
+	let mut args = std::env::args();
+	args.next();
+	let path = 
+		if let Some(path) = args.next().map(|arg| PathBuf::from(arg.as_str())) { path }
+		else if let Ok(Some(path)) = get_my_home() { path }
+		else { PathBuf::from("") };
+	
 	let options = eframe::NativeOptions {
 		viewport: egui::ViewportBuilder::default()
 			.with_inner_size([1080.0, 720.0]),
@@ -26,7 +34,11 @@ fn main() -> Result<(), Box<dyn Error>> {
 	Ok(eframe::run_native(
 		format!("CurvEdit {}", CURVEDIT_VERSION).as_str(),
 		options,
-		Box::new(|_| Box::new(CurvEdit::default())),
+		Box::new(move |_| Box::new({
+			let mut curvedit = CurvEdit::default();
+			curvedit.default_path = path;
+			curvedit
+		})),
 	)?)
 }
 
@@ -41,7 +53,8 @@ struct CurvEdit {
 	tables: Vec<(CurveTable, TableData)>,
 	curves_to_show: Vec<(usize, usize)>,
 	notes: Vec<(Note, Option<Instant>)>,
-	selected_keyframe: Option<(usize, usize, usize)>
+	selected_keyframe: Option<(usize, usize, usize)>,
+	default_path: PathBuf
 }
 struct CurvEditInput {
 	pointer_down: bool
