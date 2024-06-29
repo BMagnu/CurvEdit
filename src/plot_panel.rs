@@ -1,7 +1,7 @@
 use eframe::emath::Vec2;
 use eframe::epaint::Color32;
 use egui::Id;
-use egui_plot::{Line, MarkerShape, PlotItem, PlotPoints, PlotUi, Points};
+use egui_plot::{Line, MarkerShape, PlotPoints, PlotUi, Points};
 use fso_tables_impl::curves::{BUILTIN_CURVES, Curve, CurveKeyframe, CurveSegment, CurveTable};
 use crate::{CurvEditInput, TableData};
 use crate::curves_panel::{CURVE_RENDER_ACCURACY, SnapMode};

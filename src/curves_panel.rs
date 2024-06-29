@@ -1,6 +1,6 @@
 use eframe::emath::{Align, Vec2};
 use egui::{Context, Id, Key, Layout, Ui, Widget};
-use egui::CursorIcon::Grabbing;
+use egui::CursorIcon::{Grabbing, PointingHand};
 use crate::{CurvEdit, CurvEditInput};
 use crate::plot_panel::plot_curve;
 
@@ -71,6 +71,9 @@ impl CurvEdit {
 
 		if is_dragging {
 			ctx.output_mut(|o| o.cursor_icon = Grabbing);
+		}
+		else if input.ctrl_held {
+			ctx.output_mut(|o| o.cursor_icon = PointingHand);
 		}
 	}
 }
