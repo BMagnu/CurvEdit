@@ -59,7 +59,9 @@ struct CurvEdit {
 	default_path: PathBuf
 }
 struct CurvEditInput {
-	pointer_down: bool
+	pointer_down: bool,
+	right_clicked: bool,
+	ctrl_held: bool
 }
 impl eframe::App for CurvEdit {
 	

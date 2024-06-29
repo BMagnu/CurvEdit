@@ -2,7 +2,7 @@ use eframe::emath::Vec2;
 use eframe::epaint::Color32;
 use egui::Id;
 use egui_plot::{Line, MarkerShape, PlotPoints, PlotUi, Points};
-use fso_tables_impl::curves::{BUILTIN_CURVES, Curve, CurveTable};
+use fso_tables_impl::curves::{BUILTIN_CURVES, Curve, CurveKeyframe, CurveSegment, CurveTable};
 use crate::{CurvEditInput, TableData};
 use crate::curves_panel::{CURVE_RENDER_ACCURACY, SnapMode};
 
@@ -57,8 +57,6 @@ pub(crate) fn plot_curve (plot_ui: &mut PlotUi, ctx: &egui::Context, input: &Cur
 	let id_dragging = Id::new(format!("Dragging{}", curve.name));
 	let was_dragging = ctx.memory(|mem| mem.data.get_temp::<DraggingPntTuple>(id_dragging));
 	
-	let mut new_pos: Option<(usize, f32, f32)> = None;
-	
 	if let Some(mouse_coords) = plot_ui.pointer_coordinate() {
 		let mouse_coords: Vec2 = mouse_coords.to_vec2();
 		if plot_ui.response().hovered() && input.pointer_down {
@@ -88,44 +86,90 @@ pub(crate) fn plot_curve (plot_ui: &mut PlotUi, ctx: &egui::Context, input: &Cur
 
 			let kf = &curve.keyframes[pnt];
 			
-			match drag_mode {
+			let new_pos = match drag_mode {
 				SnapMode::NoSnap => {
-					new_pos = Some((pnt,
+					(
 						(kf.pos.0 + dragged.x).clamp(lower_bound, upper_bound),
-						kf.pos.1 + dragged.y)
-					);
+						kf.pos.1 + dragged.y
+					)
 				}
 				SnapMode::SnapX => {
-					new_pos = Some((pnt,
+					(
 						(kf.pos.0 + dragged.x).clamp(lower_bound, upper_bound),
-						kf.pos.1)
-					);
+						kf.pos.1
+					)
 				}
 				SnapMode::SnapY => {
-					new_pos = Some((pnt,
+					(
 						kf.pos.0,
-						kf.pos.1 + dragged.y)
-					);
+						kf.pos.1 + dragged.y
+					)
 				}
 				SnapMode::SnapCurve => {
 					let new_x = (kf.pos.0 + dragged.x).clamp(lower_bound, upper_bound);
 					let new_y = curve.calculate(new_x, &available_curves);
-					new_pos = Some((pnt,
+					(
 						new_x,
-						new_y)
-					);
+						new_y
+					)
 				}
-			}
+			};
 			
 			ctx.memory_mut(|mem| mem.data.remove_temp::<DraggingPntTuple>(id_dragging));
+
+			let table = &mut tables[curve_number.0];
+			let curve = &mut table.0.curves[curve_number.1];
+			
+			table.1.dirty = true;
+			curve.keyframes[pnt].pos = new_pos;
 		}
-	}
-	
-	drop(available_curves);
-	let table = &mut tables[curve_number.0];
-	let curve = &mut table.0.curves[curve_number.1];
-	if let Some((pnt, x, y)) = new_pos {
-		table.1.dirty = true;
-		curve.keyframes[pnt].pos = (x, y);
+		else if input.right_clicked {
+			let point_clicked =  point_bounds.iter().enumerate().find(|(_, (bound_lower, bound_upper))| {
+				bound_lower.x < mouse_coords.x && bound_lower.y < mouse_coords.y && bound_upper.x > mouse_coords.x && bound_upper.y > mouse_coords.y
+			});
+
+			if let Some((pnt, ..)) = point_clicked {
+				if input.ctrl_held && curve.keyframes.len() > 2 {
+					let table = &mut tables[curve_number.0];
+					let curve = &mut table.0.curves[curve_number.1];
+					
+					curve.keyframes.remove(pnt);
+					table.1.dirty = true;
+				}
+			}
+			else {
+				let point_upper =  curve.keyframes.iter().enumerate().find(|(_, kf)| {
+					kf.pos.0 >= mouse_coords.x
+				}).map(|(pnt, _)| pnt);
+				
+				let new_pos = match drag_mode {
+					SnapMode::NoSnap | SnapMode::SnapY => {
+						(
+							mouse_coords.x,
+							mouse_coords.y
+						)
+					}
+					SnapMode::SnapX | SnapMode::SnapCurve => {
+						let new_y = curve.calculate(mouse_coords.x, &available_curves);
+						(
+							mouse_coords.x,
+							new_y
+						)
+					}
+				};
+
+				let table = &mut tables[curve_number.0];
+				let curve = &mut table.0.curves[curve_number.1];
+
+				table.1.dirty = true;
+				
+				if let Some(insert) = point_upper {
+					curve.keyframes.insert(insert, CurveKeyframe::new(new_pos, CurveSegment::Constant));
+				}
+				else {
+					curve.keyframes.push(CurveKeyframe::new(new_pos, CurveSegment::Constant));
+				}
+			}
+		}
 	}
 }
